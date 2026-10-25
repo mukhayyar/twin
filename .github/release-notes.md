@@ -8,13 +8,14 @@ Clone an app into a twin with its own isolated profile (Work, Personal, Hobby), 
 |---|---|---|
 | 🖥️ **Mac app** | `Twin-{{VERSION}}.zip` | Unzip and drag **Twin.app** to Applications |
 | ⌨️ **CLI · macOS** | `twin_{{VERSION}}_darwin_universal.tar.gz` | Apple silicon + Intel |
-| 🐧 **CLI · Linux** | `twin_{{VERSION}}_linux_amd64.tar.gz` · `…_linux_arm64.tar.gz` | `.desktop` twins with XDG profiles |
+| 🐧 **CLI · Linux** | `twin_{{VERSION}}_linux_amd64.tar.gz` · `…_linux_arm64.tar.gz` | `.desktop` twins, fully isolated |
 | 🪟 **CLI · Windows** | `twin_{{VERSION}}_windows_amd64.zip` · `…_windows_arm64.zip` | Experimental |
 
-Or install the CLI on macOS or Linux in one line:
+Or with Homebrew:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mukhayyar/twin/main/install.sh | bash
+brew install mukhayyar/tap/twin          # CLI, macOS and Linux
+brew install --cask mukhayyar/tap/twin   # Twin.app
 ```
 
 > [!NOTE]

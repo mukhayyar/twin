@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Vet and test the CLI
+        run: |
+          go vet ./...
+          go test ./...
+      - name: Build the CLI
+        run: scripts/build-cli.sh
+      - name: Build the app
+        run: scripts/build-app.sh

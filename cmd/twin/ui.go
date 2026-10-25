@@ -409,13 +409,14 @@ func (m model) labelView() string {
 		tile(p.Src.Name, violet, pink), "  ",
 		st.Label.Render(p.Src.Name)+"\n"+st.Muted.Render(p.Src.Description()),
 	)
-	if m.width >= 96 {
-		c := lipgloss.Color(p.Color)
-		hero = lipgloss.JoinHorizontal(lipgloss.Center, hero,
-			st.Faint.Render("     →     "),
-			tile(p.Src.Name, c, lipgloss.Lighten(c, 0.25)), "  ",
-			st.Label.Render(p.Name)+"\n"+badge(p.Label, p.Color),
-		)
+	c := lipgloss.Color(p.Color)
+	withTwin := lipgloss.JoinHorizontal(lipgloss.Center, hero,
+		st.Faint.Render("     →     "),
+		tile(p.Src.Name, c, lipgloss.Lighten(c, 0.25)), "  ",
+		st.Label.Render(p.Name)+"\n"+badge(p.Label, p.Color),
+	)
+	if lipgloss.Width(withTwin) <= m.width-4 {
+		hero = withTwin
 	}
 
 	chips := make([]string, len(presets))

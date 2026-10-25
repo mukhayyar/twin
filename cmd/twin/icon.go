@@ -32,6 +32,7 @@ type Options struct {
 	Tint        bool   // shift the icon's hue toward the color
 	Badge       bool   // draw the label on the icon
 	OwnHardware bool   // give the twin its own hardware IDs (macOS)
+	BringData   bool   // start the twin with a copy of the original's data
 }
 
 func autoColor(label string) string {
@@ -43,9 +44,10 @@ func autoColor(label string) string {
 	return palette[h.Sum32()%uint32(len(palette))]
 }
 
-// parseOptions reads the --color, --no-badge and --share-hardware flags.
-func parseOptions(color string, noBadge, shareHardware bool) (Options, error) {
-	s := Options{Tint: true, Badge: !noBadge, OwnHardware: !shareHardware}
+// parseOptions reads the --color, --no-badge, --share-hardware and
+// --copy-data flags.
+func parseOptions(color string, noBadge, shareHardware, copyData bool) (Options, error) {
+	s := Options{Tint: true, Badge: !noBadge, OwnHardware: !shareHardware, BringData: copyData}
 	switch c := strings.ToLower(color); {
 	case c == "" || c == "auto":
 	case c == "none" || c == "off":

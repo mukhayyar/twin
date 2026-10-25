@@ -20,7 +20,7 @@ func runHeadless(p Plan, dryRun bool) error {
 	lipgloss.Println(head + "\n")
 
 	iconKept := false
-	for _, s := range steps {
+	for _, s := range planSteps(p) {
 		start := time.Now()
 		var warning string
 		var err error
@@ -40,6 +40,6 @@ func runHeadless(p Plan, dryRun bool) error {
 			lipgloss.Println(st.Success.Render("✓ ") + st.Text.Render(s.Title) + took)
 		}
 	}
-	lipgloss.Println("\n" + rows(append(append(previewRows(p), "Icon", iconRow(p, iconKept)), hardwareRow(p, false)...)...))
+	lipgloss.Println("\n" + rows(append(append(append(previewRows(p), "Icon", iconRow(p, iconKept)), hardwareRow(p, false)...), dataRow(p, false)...)...))
 	return nil
 }

@@ -23,6 +23,7 @@ type Plan struct {
 	Badge   bool
 
 	OwnHardware bool // the twin gets its own hardware IDs (macOS)
+	BringData   bool // the twin starts with a copy of the original's data
 
 	ExistingIsClone bool // what's at Dest was made by twin
 }
@@ -44,6 +45,7 @@ func newPlan(src App, rawLabel string, style Options) Plan {
 		Badge:   style.Badge,
 
 		OwnHardware: style.OwnHardware,
+		BringData:   style.BringData,
 	}
 	p.Dest, p.ID = twinTarget(src, name, label)
 	_, err := os.Stat(p.Dest)

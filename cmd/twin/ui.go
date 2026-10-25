@@ -67,6 +67,7 @@ type model struct {
 
 	plan    Plan
 	twins   []string // existing clones of plan.Src
+	steps   []step   // planSteps(plan), fixed when the clone starts
 	status  []stepState
 	notes   []string
 	took    []time.Duration
@@ -242,6 +243,9 @@ func (m model) updateLabel(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.style.OwnHardware = !m.style.OwnHardware
 			}
 			return m, nil
+		case "ctrl+d":
+			m.style.BringData = !m.style.BringData
+			return m, nil
 		case "shift+tab":
 			m.preset = (max(m.preset, 0) + len(presets) - 1) % len(presets)
 			m.input.SetValue(presets[m.preset])
@@ -288,23 +292,24 @@ func (m model) updateFinished(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) start() (tea.Model, tea.Cmd) {
 	m.state = stateRun
-	m.status = make([]stepState, len(steps))
-	m.notes = make([]string, len(steps))
-	m.took = make([]time.Duration, len(steps))
+	m.steps = planSteps(m.plan)
+	m.status = make([]stepState, len(m.steps))
+	m.notes = make([]string, len(m.steps))
+	m.took = make([]time.Duration, len(m.steps))
 	m.status[0] = stepRunning
 	m.started = time.Now()
 	m.input.Blur()
-	return m, tea.Batch(m.spinner.Tick, m.bar.SetPercent(0), runStep(m.plan, 0, m.dryRun))
+	return m, tea.Batch(m.spinner.Tick, m.bar.SetPercent(0), runStep(m.steps[0], m.plan, 0, m.dryRun))
 }
 
-func runStep(p Plan, i int, dryRun bool) tea.Cmd {
+func runStep(s step, p Plan, i int, dryRun bool) tea.Cmd {
 	return func() tea.Msg {
 		start := time.Now()
 		if dryRun {
-			time.Sleep(dryRunDelays[i] * time.Millisecond)
+			time.Sleep(dryRunDelays[min(i, len(dryRunDelays)-1)] * time.Millisecond)
 			return stepDoneMsg{index: i, took: time.Since(start)}
 		}
-		warning, err := steps[i].Run(p)
+		warning, err := s.Run(p)
 		if err != nil {
 			cleanup(p) // don't leave a half-built twin behind
 		}
@@ -328,13 +333,13 @@ func (m model) stepDone(msg stepDoneMsg) (tea.Model, tea.Cmd) {
 		m.status[i] = stepWarn
 		m.notes[i] = msg.warning
 	}
-	bar := m.bar.SetPercent(float64(i+1) / float64(len(steps)))
-	if i+1 == len(steps) {
+	bar := m.bar.SetPercent(float64(i+1) / float64(len(m.steps)))
+	if i+1 == len(m.steps) {
 		m.elapsed = time.Since(m.started)
 		return m, tea.Batch(bar, tea.Tick(700*time.Millisecond, func(time.Time) tea.Msg { return finishMsg{} }))
 	}
 	m.status[i+1] = stepRunning
-	return m, tea.Batch(bar, runStep(m.plan, i+1, m.dryRun))
+	return m, tea.Batch(bar, runStep(m.steps[i+1], m.plan, i+1, m.dryRun))
 }
 
 func (m model) View() tea.View {
@@ -362,7 +367,7 @@ func (m model) View() tea.View {
 	v.WindowTitle = "twin"
 	v.AltScreen = m.state < stateDone
 	if m.state == stateRun {
-		v.ProgressBar = tea.NewProgressBar(tea.ProgressBarDefault, int(100*m.completed()/float64(len(steps))))
+		v.ProgressBar = tea.NewProgressBar(tea.ProgressBarDefault, int(100*m.completed()/float64(len(m.steps))))
 	}
 	return v
 }
@@ -431,7 +436,7 @@ func (m model) labelView() string {
 		}
 	}
 
-	card := st.Card.Render(st.CardTitle.Render("PREVIEW") + "\n" + rows(append(append(previewRows(p), "Icon", iconSummary(p)), hardwareRow(p, true)...)...))
+	card := st.Card.Render(st.CardTitle.Render("PREVIEW") + "\n" + rows(append(append(append(previewRows(p), "Icon", iconSummary(p)), hardwareRow(p, true)...), dataRow(p, true)...)...))
 
 	out := []string{
 		hero, "",
@@ -459,6 +464,7 @@ func (m model) labelView() string {
 	if hardwareOption {
 		keys = append(keys, "ctrl+o", "hardware ID")
 	}
+	keys = append(keys, "ctrl+d", "copy data")
 	out = append(out, "", help(append(keys, "esc", "back", "ctrl+c", "quit")...))
 	return strings.Join(out, "\n")
 }
@@ -484,7 +490,7 @@ func (m model) runView() string {
 
 	nameCol := lipgloss.NewStyle().Width(38)
 	var lines []string
-	for i, s := range steps {
+	for i, s := range m.steps {
 		icon, name := st.Faint.Render("·"), st.Faint.Render(s.Title)
 		switch m.status[i] {
 		case stepRunning:
@@ -514,16 +520,17 @@ func (m model) doneView() string {
 		title = st.Success.Bold(true).Render("✓ Dry run complete") + st.Muted.Render(" · nothing was changed")
 	}
 	kept := false
-	for i, s := range steps {
+	for i, s := range m.steps {
 		kept = kept || (s.Title == paintStep && m.notes[i] != "")
 	}
 	pairs := append(previewRows(m.plan), "Icon", iconRow(m.plan, kept))
 	pairs = append(pairs, hardwareRow(m.plan, false)...)
+	pairs = append(pairs, dataRow(m.plan, false)...)
 	pairs = append(pairs, "Time", fmt.Sprintf("%.1fs", m.elapsed.Seconds()))
 	body := title + "\n\n" + rows(pairs...)
 	for i, n := range m.notes {
 		if n != "" {
-			body += "\n\n" + st.Warn.Render("▲ "+steps[i].Title+": "+clip(n, 60))
+			body += "\n\n" + st.Warn.Render("▲ "+m.steps[i].Title+": "+clip(n, 60))
 		}
 	}
 
@@ -538,7 +545,7 @@ func (m model) doneView() string {
 }
 
 func (m model) failedView() string {
-	body := st.Fail.Bold(true).Render("✗ Clone failed at “"+steps[m.failed].Title+"”") + "\n\n" +
+	body := st.Fail.Bold(true).Render("✗ Clone failed at “"+m.steps[m.failed].Title+"”") + "\n\n" +
 		lipgloss.NewStyle().Width(min(max(m.width-16, 30), 72)).Render(st.Text.Render(m.err.Error())) + "\n\n" +
 		st.Muted.Render("The partial clone was removed.")
 	out := st.FailBox.Render(body)
@@ -575,6 +582,19 @@ func hardwareRow(p Plan, editable bool) []string {
 		return []string{"Hardware", st.Text.Render(own)}
 	}
 	return []string{"Hardware", st.Muted.Render(shared)}
+}
+
+// dataRow describes whether the twin starts with a copy of the original's
+// data. editable adds a checkbox look.
+func dataRow(p Plan, editable bool) []string {
+	on, off := "copy of "+p.Src.Name+"'s data", "fresh profile"
+	if editable {
+		on, off = "[x] copy "+p.Src.Name+"'s data", "[ ] copy "+p.Src.Name+"'s data"
+	}
+	if p.BringData {
+		return []string{"Data", st.Text.Render(on)}
+	}
+	return []string{"Data", st.Muted.Render(off)}
 }
 
 // iconRow summarizes the finished icon, admitting when painting fell back.

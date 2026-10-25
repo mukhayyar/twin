@@ -59,6 +59,7 @@ var steps = []step{
 	{"Update bundle identifier", updateInfoPlist},
 	{paintStep, paintIcon},
 	{"Set up isolated profile", setupProfile},
+	{dataStep, bringData},
 	{"Clear quarantine & re-sign", resign},
 	{"Register with Launch Services", register},
 }

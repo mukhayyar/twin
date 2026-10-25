@@ -17,9 +17,11 @@ import (
 
 // A Linux twin is a .desktop entry whose launcher points HOME and the XDG
 // directories at the profile, plus a repainted icon. The app itself is
-// shared, so nothing large is copied.
+// shared, so nothing large is copied (unless the twin brings the original's
+// data along).
 var steps = []step{
 	{"Create profile folder", makeProfile},
+	{dataStep, bringData},
 	{paintStep, paintDesktopIcon},
 	{"Write launcher", writeLauncher},
 	{"Refresh app menu", refreshMenu},

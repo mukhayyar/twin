@@ -39,6 +39,8 @@ Flags:
       --share-hardware
                       let the twin see this Mac's real hardware IDs instead of
                       its own (for apps licensed per device; macOS)
+      --copy-data     start the twin with a copy of the original's settings
+                      and data instead of a fresh profile
   -v, --version       print the version
 
 Environment:
@@ -49,7 +51,7 @@ Tip: ` + strings.ToLower(dropHint[:1]) + dropHint[1:] + `
 `
 
 func main() {
-	var yes, dryRun, showVersion, noBadge, shareHardware bool
+	var yes, dryRun, showVersion, noBadge, shareHardware, copyData bool
 	var color string
 	flag.BoolVar(&yes, "yes", false, "")
 	flag.BoolVar(&yes, "y", false, "")
@@ -59,6 +61,7 @@ func main() {
 	flag.StringVar(&color, "c", "auto", "")
 	flag.BoolVar(&noBadge, "no-badge", false, "")
 	flag.BoolVar(&shareHardware, "share-hardware", false, "")
+	flag.BoolVar(&copyData, "copy-data", false, "")
 	flag.BoolVar(&showVersion, "version", false, "")
 	flag.BoolVar(&showVersion, "v", false, "")
 	flag.Usage = func() { fmt.Fprint(os.Stderr, usage) }
@@ -78,7 +81,7 @@ func main() {
 		return
 	}
 
-	style, err := parseOptions(color, noBadge, shareHardware)
+	style, err := parseOptions(color, noBadge, shareHardware, copyData)
 	if err != nil {
 		fail(2, err)
 	}

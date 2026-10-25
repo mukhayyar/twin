@@ -14,6 +14,7 @@ import (
 // folders pointed at the profile, plus a repainted icon.
 var steps = []step{
 	{"Create profile folder", makeWinProfile},
+	{dataStep, bringData},
 	{paintStep, paintWinIcon},
 	{"Create Start Menu shortcut", writeShortcut},
 }

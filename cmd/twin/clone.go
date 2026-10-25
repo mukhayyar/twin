@@ -113,12 +113,13 @@ func copyBundle(p Plan) (string, error) {
 	return "", run("ditto", src, p.Dest)
 }
 
+// updateInfoPlist gives the clone its own bundle identifier. CFBundleName is
+// deliberately left alone: Electron apps find their helpers as
+// "<CFBundleName> Helper.app" and crash at launch if it changes. Finder and
+// the Dock show the renamed bundle's file name anyway.
 func updateInfoPlist(p Plan) (string, error) {
 	info := filepath.Join(p.Dest, "Contents", "Info.plist")
-	if err := run("plutil", "-replace", "CFBundleIdentifier", "-string", p.BundleID, info); err != nil {
-		return "", err
-	}
-	return "", run("plutil", "-replace", "CFBundleName", "-string", p.Name, info)
+	return "", run("plutil", "-replace", "CFBundleIdentifier", "-string", p.BundleID, info)
 }
 
 func injectLauncher(p Plan) (string, error) {

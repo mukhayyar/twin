@@ -6,10 +6,9 @@ Clone an app into a twin with its own isolated profile (Work, Personal, Hobby), 
 
 | | File | |
 |---|---|---|
-| 🖥️ **Mac app** | `Twin-{{VERSION}}.zip` | Unzip and drag **Twin.app** to Applications |
-| ⌨️ **CLI · macOS** | `twin_{{VERSION}}_darwin_universal.tar.gz` | Apple silicon + Intel |
-| 🐧 **CLI · Linux** | `twin_{{VERSION}}_linux_amd64.tar.gz` · `…_linux_arm64.tar.gz` | `.desktop` twins, fully isolated |
-| 🪟 **CLI · Windows** | `twin_{{VERSION}}_windows_amd64.zip` · `…_windows_arm64.zip` | Experimental |
+| 🖥️ **Mac app** | `Twin-{{VERSION}}.dmg` | Open it and drag **Twin** to **Applications** |
+| 🐧 **Linux** | `twin-{{VERSION}}-x86_64.AppImage` · `…-aarch64.AppImage` | `chmod +x` it, then run it in a terminal |
+| 🪟 **Windows** | `twin-{{VERSION}}-windows-amd64.exe` · `…-windows-arm64.exe` | Run it in a terminal. Experimental |
 
 Or with Homebrew:
 
@@ -17,6 +16,8 @@ Or with Homebrew:
 brew install mukhayyar/tap/twin          # CLI, macOS and Linux
 brew install --cask mukhayyar/tap/twin   # Twin.app
 ```
+
+**Other downloads:** `Twin-{{VERSION}}.zip` (Mac app) · CLI tarballs `twin_{{VERSION}}_darwin_universal.tar.gz` (Apple silicon + Intel), `twin_{{VERSION}}_linux_amd64.tar.gz`, `twin_{{VERSION}}_linux_arm64.tar.gz` · `twin_{{VERSION}}_windows_amd64.zip`, `twin_{{VERSION}}_windows_arm64.zip`
 
 > [!NOTE]
 > Twin is ad-hoc signed, not notarized. On first launch, right-click **Twin.app → Open**, or run

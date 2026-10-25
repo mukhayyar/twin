@@ -3,6 +3,7 @@
 #   twin_<v>_darwin_universal.tar.gz    Apple silicon + Intel
 #   twin_<v>_linux_{amd64,arm64}.tar.gz
 #   twin_<v>_windows_{amd64,arm64}.zip  experimental
+#   twin-<v>-windows-{amd64,arm64}.exe  the same twin.exe, to run without unzipping
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -35,6 +36,7 @@ for arch in amd64 arm64; do
   build windows $arch "$stage/twin.exe"
   cp README.md LICENSE "$stage/"
   (cd "$stage" && zip -q "../twin_${V}_windows_${arch}.zip" twin.exe README.md LICENSE)
+  mv "$stage/twin.exe" "dist/twin-${V}-windows-${arch}.exe"
   rm -rf "$stage"
 done
-ls -1 dist/twin_${V}_*
+ls -1 dist/twin_"${V}"_* dist/twin-"${V}"-windows-*.exe

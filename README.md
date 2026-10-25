@@ -15,7 +15,7 @@ Slack for work, Slack for you, side by side, never sharing a login.
 [![CI](https://img.shields.io/github/actions/workflow/status/mukhayyar/twin/ci.yml?style=flat-square&label=CI)](https://github.com/mukhayyar/twin/actions/workflows/ci.yml)
 [![MIT license](https://img.shields.io/github/license/mukhayyar/twin?style=flat-square&color=04B575)](LICENSE)
 
-**[Download Twin.app](https://github.com/mukhayyar/twin/releases/latest)** &nbsp;·&nbsp; **[Install the CLI](#install)** &nbsp;·&nbsp; **[▶ Watch the 40-second film](assets/twin-promo.mp4)**
+**[Download Twin.app](https://github.com/mukhayyar/twin/releases/latest)** &nbsp;·&nbsp; **[Install the CLI](#install)** &nbsp;·&nbsp; **[▶ Watch the film](assets/twin-promo.mp4)**
 
 <br>
 
@@ -35,6 +35,8 @@ Most Mac apps only let you be one person at a time. Signing in to a second Slack
 Twin makes a full copy of the app that **believes it lives in its own home folder**. Each twin keeps its own logins, settings, caches and window state, gets its own Dock icon, and runs alongside the original.
 
 <div align="center">
+<a href="assets/twin-promo.mp4"><img src="assets/promo-poster.png" width="860" alt="Watch Twin in action: clone Discord into Work and Personal twins and run them side by side"></a>
+<br><br>
 <img src="assets/twins.png" width="860" alt="Discord cloned into Work, Personal and Hobby twins, each recolored with a matching badge">
 </div>
 

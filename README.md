@@ -196,6 +196,15 @@ Most apps that keep their data under `~/Library`: Electron apps (Slack, Discord,
 </details>
 
 <details>
+<summary><b>How do permissions work (Screen Recording, Accessibility…)?</b></summary>
+
+<br>
+
+Each twin is its own app to macOS, with its own entry in **System Settings → Privacy & Security**, so grant permissions to the twin itself (e.g. *RustDesk-Work*). macOS ties them to the exact build, so after you re-create a twin, switch its permissions off and on again. Twins made before Twin 0.3 can't receive permissions; re-create them.
+
+</details>
+
+<details>
 <summary><b>What happens when the original app updates?</b></summary>
 
 <br>

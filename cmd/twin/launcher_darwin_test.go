@@ -1,37 +1,65 @@
 package main
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
 
-func TestLauncher(t *testing.T) {
-	p := Plan{Name: `Odd "$name"`, Label: "Work", ID: "com.example.app.Work", Src: App{ID: "com.example.app", Exec: "Odd"}, OwnHardware: true}
-	s := launcher(p)
-	for _, want := range []string{
-		`PROFILE_DIR="$HOME/.app_profiles/Odd \"\$name\""`,
-		`[ -e "$PROFILE_DIR/Library/Keychains" ] || ln -s "$HOME/Library/Keychains" "$PROFILE_DIR/Library/Keychains"`,
-		`TWIN_ID="com.example.app.Work" TWIN_ORIG_ID="com.example.app"`,
-		`export TWIN_ROOT="/private/tmp/twin.$UID.` + twinHash(p.Name) + `"`,
-		`export DYLD_INSERT_LIBRARIES="$(dirname "$0")/libtwinisolate.dylib"`,
-		`exec "$(dirname "$0")/Odd.real" "$@"`,
-	} {
-		if !strings.Contains(s, want) {
-			t.Errorf("launcher missing %q:\n%s", want, s)
+func TestTwinEnv(t *testing.T) {
+	p := Plan{Name: "RustDesk-JXB", Label: "JXB", ID: "com.carriez.rustdesk.JXB", Profile: "/Users/a/.app_profiles/RustDesk-JXB",
+		Src: App{ID: "com.carriez.rustdesk", Exec: "RustDesk"}, OwnHardware: true}
+	env := map[string]string{}
+	for _, kv := range twinEnv(p) {
+		env[kv[0]] = kv[1]
+	}
+	want := map[string]string{
+		"TWIN_HOME":             p.Profile,
+		"CFFIXED_USER_HOME":     p.Profile,
+		"TWIN_ID":               "com.carriez.rustdesk.JXB",
+		"TWIN_ORIG_ID":          "com.carriez.rustdesk",
+		"TWIN_HARDWARE":         "separate",
+		"DYLD_INSERT_LIBRARIES": "@executable_path/libtwinisolate.dylib",
+	}
+	for k, v := range want {
+		if env[k] != v {
+			t.Errorf("%s = %q, want %q", k, env[k], v)
 		}
 	}
-	if !strings.Contains(s, `export TWIN_HARDWARE="separate"`) {
-		t.Error("own hardware IDs should be on")
+	if !strings.HasPrefix(env["TWIN_ROOT"], "/private/tmp/twin.") || !strings.HasPrefix(env["TMPDIR"], env["TWIN_ROOT"]) {
+		t.Errorf("TWIN_ROOT %q, TMPDIR %q", env["TWIN_ROOT"], env["TMPDIR"])
+	}
+	if _, ok := env["HOME"]; ok {
+		t.Error("HOME can't be set through LSEnvironment; libtwinisolate moves it")
+	}
+	if got := twinExec(p); got != "RustDesk-JXB" {
+		t.Errorf("twinExec = %q", got)
 	}
 	p.OwnHardware = false
-	if !strings.Contains(launcher(p), `export TWIN_HARDWARE="shared"`) {
-		t.Error("--share-hardware should write shared")
-	}
-	// The keychain link must be made while $HOME is still the real home.
-	if strings.Index(s, "ln -s") > strings.Index(s, `export HOME=`) {
-		t.Error("keychain link comes after HOME moves")
+	for _, kv := range twinEnv(p) {
+		if kv[0] == "TWIN_HARDWARE" && kv[1] != "shared" {
+			t.Errorf("--share-hardware gives %q", kv[1])
+		}
 	}
 	if len(isolateLib) < 10000 {
 		t.Error("libtwinisolate.dylib isn't embedded")
+	}
+}
+
+// TWIN_SETUP_BUNDLE=<copy of an .app> runs setupProfile on it, for comparing
+// with what Twin.app produces.
+func TestSetupProfileOnBundle(t *testing.T) {
+	dest := os.Getenv("TWIN_SETUP_BUNDLE")
+	if dest == "" {
+		t.Skip()
+	}
+	a, ok := readApp(dest)
+	if !ok {
+		t.Fatal("not an app")
+	}
+	p := Plan{Name: "Slack-Work", Label: "Work", ID: "com.tinyspeck.slackmacgap.Work", Dest: dest,
+		Profile: os.Getenv("TWIN_SETUP_PROFILE"), Src: App{ID: "com.tinyspeck.slackmacgap", Exec: a.Exec}, OwnHardware: true}
+	if _, err := setupProfile(p); err != nil {
+		t.Fatal(err)
 	}
 }

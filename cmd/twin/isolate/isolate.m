@@ -25,9 +25,14 @@
 //                         TWIN_HARDWARE=shared turns this part off, for apps
 //                         licensed per device.
 //
-// Environment: TWIN_ROOT, TWIN_CACHE, TWIN_NAME, TWIN_LABEL, TWIN_ID (the
-// twin's bundle ID), TWIN_ORIG_ID, and optional TWIN_REMAP extra prefix pairs
-// ("from=to", separated by ':').
+// Twins are launched by macOS with their Info.plist's LSEnvironment, which
+// can't set HOME (launchd overrides it), so TWIN_HOME carries the profile and
+// this library moves HOME there before the app runs, after linking the login
+// keychain into it (macOS looks for the keychain under $HOME).
+//
+// Environment: TWIN_HOME, TWIN_ROOT, TWIN_CACHE, TWIN_NAME, TWIN_LABEL,
+// TWIN_ID (the twin's bundle ID), TWIN_ORIG_ID, TWIN_HARDWARE, and optional
+// TWIN_REMAP extra prefix pairs ("from=to", separated by ':').
 //
 // Build: clang -arch arm64 -arch x86_64 -mmacosx-version-min=11.0 -dynamiclib -O2 -fobjc-arc \
 //          -framework Foundation -framework Security -framework IOKit -o libtwinisolate.dylib isolate.m
@@ -36,12 +41,14 @@
 #import <Foundation/Foundation.h>
 #import <IOKit/IOKitLib.h>
 #import <Security/Security.h>
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <ifaddrs.h>
 #include <net/if_dl.h>
 #include <sys/sysctl.h>
 #include <uuid/uuid.h>
 #include <mach-o/dyld.h>
+#include <pwd.h>
 #include <objc/runtime.h>
 #include <stdarg.h>
 #include <sys/attr.h>
@@ -595,6 +602,32 @@ __attribute__((constructor)) static void init(void) {
     snprintf(cacheDir, sizeof cacheDir, "%s/", c && *c ? c : root);
     mkdirs(tempDir);
     mkdirs(cacheDir);
+
+    // Move HOME into the profile, keeping the login keychain reachable.
+    const char *home = getenv("TWIN_HOME");
+    if (home && *home) {
+        char dir[1024], link[1024], target[1024];
+        snprintf(dir, sizeof dir, "%s/Library", home);
+        mkdirs(dir);
+        struct passwd *pw = getpwuid(getuid());
+        snprintf(link, sizeof link, "%s/Library/Keychains", home);
+        struct stat st;
+        if (pw && lstat(link, &st) != 0) {
+            snprintf(target, sizeof target, "%s/Library/Keychains", pw->pw_dir);
+            symlink(target, link);
+        }
+        setenv("HOME", home, 1);
+        setenv("CFFIXED_USER_HOME", home, 1);
+    }
+    setenv("TMPDIR", tempDir, 1);
+
+    // Twins load this library as @executable_path/libtwinisolate.dylib, which
+    // child processes (Electron and Chromium helper apps) would resolve against
+    // their own folder and fail to launch. Hand them this copy's absolute path.
+    Dl_info self;
+    char lib[1024];
+    if (dladdr((const void *)init, &self) && self.dli_fname && realpath(self.dli_fname, lib))
+        setenv("DYLD_INSERT_LIBRARIES", lib, 1);
 
     char exe[1024], real[1024];
     uint32_t size = sizeof exe;

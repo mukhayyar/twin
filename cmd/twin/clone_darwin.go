@@ -21,40 +21,38 @@ const (
 //go:embed isolate/libtwinisolate.dylib
 var isolateLib []byte
 
-// launcher is the script that replaces a twin's main executable. Every twin
-// gets the same isolation; no app is special-cased.
-func launcher(p Plan) string {
-	return `#!/usr/bin/env bash
-PROFILE_DIR="$HOME/.app_profiles/` + bashEscape(p.Name) + `"
-mkdir -p "$PROFILE_DIR/Library"
-
-# macOS finds the login keychain under $HOME, so keep it reachable before HOME
-# moves. Keychain items stay separate: libtwinisolate gives them twin names.
-[ -e "$PROFILE_DIR/Library/Keychains" ] || ln -s "$HOME/Library/Keychains" "$PROFILE_DIR/Library/Keychains"
-
-# Isolate everything else. HOME and CFFIXED_USER_HOME move files and ~/Library;
-# libtwinisolate covers /tmp, temp and cache folders, preferences and keychain items.
-export TWIN_NAME="` + bashEscape(p.Name) + `" TWIN_LABEL="` + p.Label + `" TWIN_ID="` + bashEscape(p.ID) + `" TWIN_ORIG_ID="` + bashEscape(p.Src.ID) + `"
-export TWIN_ROOT="/private/tmp/twin.$UID.` + twinHash(p.Name) + `" TWIN_CACHE="$PROFILE_DIR/Library/Caches/TwinDarwin"
-export TWIN_HARDWARE="` + hardwareMode(p) + `" # "shared" lets apps see this Mac's real hardware IDs
-export TMPDIR="$TWIN_ROOT/T/"
-export HOME="$PROFILE_DIR"
-export CFFIXED_USER_HOME="$PROFILE_DIR"
-export DYLD_INSERT_LIBRARIES="$(dirname "$0")/libtwinisolate.dylib"
-exec "$(dirname "$0")/` + bashEscape(p.Src.Exec) + `.real" "$@"
-`
+// twinEnv is what macOS starts a twin with (its Info.plist LSEnvironment).
+// The app's own executable stays the main executable, so privacy
+// permissions (Screen Recording, Accessibility…) attach to the twin itself;
+// libtwinisolate does the rest at launch. Every twin gets the same
+// isolation; no app is special-cased.
+func twinEnv(p Plan) [][2]string {
+	root := fmt.Sprintf("/private/tmp/twin.%d.%s", os.Getuid(), twinHash(p.Name))
+	return [][2]string{
+		{"TWIN_HOME", p.Profile},
+		{"CFFIXED_USER_HOME", p.Profile},
+		{"TWIN_ROOT", root},
+		{"TMPDIR", root + "/T/"},
+		{"TWIN_CACHE", p.Profile + "/Library/Caches/TwinDarwin"},
+		{"TWIN_NAME", p.Name},
+		{"TWIN_LABEL", p.Label},
+		{"TWIN_ID", p.ID},
+		{"TWIN_ORIG_ID", p.Src.ID},
+		{"TWIN_HARDWARE", hardwareMode(p)},
+		{"DYLD_INSERT_LIBRARIES", "@executable_path/libtwinisolate.dylib"},
+	}
 }
+
+// twinExec is the twin's executable name. It differs from the original's so
+// the two never look like the same process: some apps (RustDesk) kill other
+// processes that share their name.
+func twinExec(p Plan) string { return p.Src.Exec + "-" + p.Label }
 
 func hardwareMode(p Plan) string {
 	if p.OwnHardware {
 		return "separate"
 	}
 	return "shared"
-}
-
-// bashEscape makes s safe inside a double-quoted bash string.
-func bashEscape(s string) string {
-	return strings.NewReplacer(`\`, `\\`, `"`, `\"`, `$`, `\$`, "`", "\\`").Replace(s)
 }
 
 // twinHash keeps TWIN_ROOT short: Unix socket paths max out at 104 bytes.
@@ -68,7 +66,7 @@ var steps = []step{
 	{"Copy app bundle", copyBundle},
 	{"Update bundle identifier", updateInfoPlist},
 	{paintStep, paintIcon},
-	{"Inject isolated profile launcher", injectLauncher},
+	{"Set up isolated profile", setupProfile},
 	{"Clear quarantine & re-sign", resign},
 	{"Register with Launch Services", register},
 }
@@ -114,19 +112,44 @@ func updateInfoPlist(p Plan) (string, error) {
 	return "", run("plutil", "-replace", "CFBundleIdentifier", "-string", p.ID, info)
 }
 
-func injectLauncher(p Plan) (string, error) {
-	if err := os.MkdirAll(p.Profile, 0o755); err != nil {
+func setupProfile(p Plan) (string, error) {
+	// The profile, with the login keychain linked in: macOS looks for it under
+	// $HOME, which libtwinisolate moves here.
+	if err := os.MkdirAll(filepath.Join(p.Profile, "Library"), 0o755); err != nil {
 		return "", err
 	}
+	home, _ := os.UserHomeDir()
+	keychains := filepath.Join(p.Profile, "Library", "Keychains")
+	if _, err := os.Lstat(keychains); err != nil {
+		if err := os.Symlink(filepath.Join(home, "Library", "Keychains"), keychains); err != nil {
+			return "", err
+		}
+	}
+
 	macos := filepath.Join(p.Dest, "Contents", "MacOS")
-	exe := filepath.Join(macos, p.Src.Exec)
-	if err := os.Rename(exe, exe+".real"); err != nil {
+	if err := os.Rename(filepath.Join(macos, p.Src.Exec), filepath.Join(macos, twinExec(p))); err != nil {
 		return "", err
 	}
 	if err := os.WriteFile(filepath.Join(macos, "libtwinisolate.dylib"), isolateLib, 0o755); err != nil {
 		return "", err
 	}
-	return "", os.WriteFile(exe, []byte(launcher(p)), 0o755)
+
+	info := filepath.Join(p.Dest, "Contents", "Info.plist")
+	_ = run("plutil", "-insert", "LSEnvironment", "-dictionary", info) // fails if the app already has one
+	edits := [][]string{
+		{"CFBundleExecutable", twinExec(p)},
+		{"TwinOriginalBundleID", p.Src.ID},
+		{"TwinProfile", p.Profile},
+	}
+	for _, kv := range twinEnv(p) {
+		edits = append(edits, []string{"LSEnvironment." + kv[0], kv[1]})
+	}
+	for _, e := range edits {
+		if err := run("plutil", "-replace", e[0], "-string", e[1], info); err != nil {
+			return "", err
+		}
+	}
+	return "", nil
 }
 
 func resign(p Plan) (string, error) {

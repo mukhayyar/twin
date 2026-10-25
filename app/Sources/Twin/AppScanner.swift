@@ -41,7 +41,8 @@ enum AppScanner {
             bundleID: info["CFBundleIdentifier"] as? String ?? "",
             version: info["CFBundleShortVersionString"] as? String,
             executable: executable,
-            isClone: FileManager.default.fileExists(atPath: real.path)
+            // Twins carry TwinOriginalBundleID; ones made before 0.3 kept the real binary as <exec>.real.
+            isClone: info["TwinOriginalBundleID"] != nil || FileManager.default.fileExists(atPath: real.path)
         )
     }
 

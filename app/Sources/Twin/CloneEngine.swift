@@ -26,7 +26,7 @@ enum CloneEngine {
         "Copy app bundle",
         "Update bundle identifier",
         "Paint icon & badge",
-        "Inject isolated profile launcher",
+        "Set up isolated profile",
         "Clear quarantine & re-sign",
         "Register with Launch Services",
     ]
@@ -54,7 +54,7 @@ enum CloneEngine {
             case 0: try copyBundle(plan, replacing: replacing)
             case 1: try updateIdentity(plan)
             case 2: return paintIcon(plan)
-            case 3: try injectLauncher(plan)
+            case 3: try setupProfile(plan)
             case 4: return bestEffort([
                     ["/usr/bin/xattr", "-cr", dest],
                     ["/usr/bin/codesign", "--force", "--deep", "--sign", "-", dest],
@@ -73,40 +73,31 @@ enum CloneEngine {
         try? FileManager.default.removeItem(at: plan.destination)
     }
 
-    /// The script that replaces a twin's main executable. Every twin gets the same
-    /// isolation; no app is special-cased. Byte-identical to the CLI's `launcher`.
-    static func wrapperScript(plan: ClonePlan) -> String {
-        let name = bashEscape(plan.cloneName)
-        return """
-        #!/usr/bin/env bash
-        PROFILE_DIR="$HOME/.app_profiles/\(name)"
-        mkdir -p "$PROFILE_DIR/Library"
-
-        # macOS finds the login keychain under $HOME, so keep it reachable before HOME
-        # moves. Keychain items stay separate: libtwinisolate gives them twin names.
-        [ -e "$PROFILE_DIR/Library/Keychains" ] || ln -s "$HOME/Library/Keychains" "$PROFILE_DIR/Library/Keychains"
-
-        # Isolate everything else. HOME and CFFIXED_USER_HOME move files and ~/Library;
-        # libtwinisolate covers /tmp, temp and cache folders, preferences and keychain items.
-        export TWIN_NAME="\(name)" TWIN_LABEL="\(plan.label)" TWIN_ID="\(bashEscape(plan.bundleID))" TWIN_ORIG_ID="\(bashEscape(plan.source.bundleID))"
-        export TWIN_ROOT="/private/tmp/twin.$UID.\(String(format: "%08x", IconPainter.fnv1a(plan.cloneName)))" TWIN_CACHE="$PROFILE_DIR/Library/Caches/TwinDarwin"
-        export TWIN_HARDWARE="\(plan.ownHardware ? "separate" : "shared")" # "shared" lets apps see this Mac's real hardware IDs
-        export TMPDIR="$TWIN_ROOT/T/"
-        export HOME="$PROFILE_DIR"
-        export CFFIXED_USER_HOME="$PROFILE_DIR"
-        export DYLD_INSERT_LIBRARIES="$(dirname "$0")/libtwinisolate.dylib"
-        exec "$(dirname "$0")/\(bashEscape(plan.source.executable)).real" "$@"
-
-        """
+    /// What macOS starts a twin with (its Info.plist LSEnvironment). The app's own
+    /// executable stays the main executable, so privacy permissions attach to the twin;
+    /// libtwinisolate does the rest at launch. Every twin gets the same isolation.
+    /// Mirrors the CLI's `twinEnv`.
+    static func twinEnv(plan: ClonePlan) -> [(key: String, value: String)] {
+        let profile = plan.profileURL.path
+        let root = "/private/tmp/twin.\(getuid()).\(String(format: "%08x", IconPainter.fnv1a(plan.cloneName)))"
+        return [
+            ("TWIN_HOME", profile),
+            ("CFFIXED_USER_HOME", profile),
+            ("TWIN_ROOT", root),
+            ("TMPDIR", root + "/T/"),
+            ("TWIN_CACHE", profile + "/Library/Caches/TwinDarwin"),
+            ("TWIN_NAME", plan.cloneName),
+            ("TWIN_LABEL", plan.label),
+            ("TWIN_ID", plan.bundleID),
+            ("TWIN_ORIG_ID", plan.source.bundleID),
+            ("TWIN_HARDWARE", plan.ownHardware ? "separate" : "shared"),
+            ("DYLD_INSERT_LIBRARIES", "@executable_path/libtwinisolate.dylib"),
+        ]
     }
 
-    /// Makes a value safe inside a double-quoted bash string.
-    static func bashEscape(_ s: String) -> String {
-        s.replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "$", with: "\\$")
-            .replacingOccurrences(of: "`", with: "\\`")
-    }
+    /// The twin's executable name. It differs from the original's so the two never look
+    /// like the same process: some apps (RustDesk) kill other processes sharing their name.
+    static func twinExecutable(plan: ClonePlan) -> String { "\(plan.source.executable)-\(plan.label)" }
 
     // MARK: Steps
 
@@ -149,21 +140,35 @@ enum CloneEngine {
         }
     }
 
-    private static func injectLauncher(_ plan: ClonePlan) throws {
+    private static func setupProfile(_ plan: ClonePlan) throws {
         let fm = FileManager.default
-        try fm.createDirectory(at: plan.profileURL, withIntermediateDirectories: true)
+        // The profile, with the login keychain linked in: macOS looks for it under $HOME,
+        // which libtwinisolate moves here.
+        let library = plan.profileURL.appendingPathComponent("Library", isDirectory: true)
+        try fm.createDirectory(at: library, withIntermediateDirectories: true)
+        let keychains = library.appendingPathComponent("Keychains")
+        if (try? fm.destinationOfSymbolicLink(atPath: keychains.path)) == nil, !fm.fileExists(atPath: keychains.path) {
+            let real = fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/Keychains")
+            try fm.createSymbolicLink(at: keychains, withDestinationURL: real)
+        }
 
         let macOS = plan.destination.appendingPathComponent("Contents/MacOS", isDirectory: true)
-        let launcher = macOS.appendingPathComponent(plan.source.executable)
-        try fm.moveItem(at: launcher, to: macOS.appendingPathComponent("\(plan.source.executable).real"))
-
+        let executable = twinExecutable(plan: plan)
+        try fm.moveItem(at: macOS.appendingPathComponent(plan.source.executable),
+                        to: macOS.appendingPathComponent(executable))
         guard let lib = Bundle.main.url(forResource: "libtwinisolate", withExtension: "dylib") else {
             throw CloneError("libtwinisolate.dylib is missing from Twin.app; rebuild it with scripts/build-app.sh.")
         }
         try fm.copyItem(at: lib, to: macOS.appendingPathComponent("libtwinisolate.dylib"))
-        let script = wrapperScript(plan: plan)
-        try script.write(to: launcher, atomically: true, encoding: .utf8)
-        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: launcher.path)
+
+        let info = infoPlist(plan)
+        _ = try? run("/usr/bin/plutil", ["-insert", "LSEnvironment", "-dictionary", info]) // fails if one exists
+        var edits = [("CFBundleExecutable", executable), ("TwinOriginalBundleID", plan.source.bundleID),
+                     ("TwinProfile", plan.profileURL.path)]
+        edits += twinEnv(plan: plan).map { ("LSEnvironment.\($0.key)", $0.value) }
+        for (key, value) in edits {
+            try run("/usr/bin/plutil", ["-replace", key, "-string", value, info])
+        }
     }
 
     private static func bestEffort(_ commands: [[String]]) -> Outcome {

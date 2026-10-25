@@ -123,13 +123,16 @@ func readApp(path string) (App, bool) {
 	if exec == "" {
 		return App{}, false
 	}
+	// Twins carry TwinOriginalBundleID; ones made before 0.3 swapped in a
+	// launcher script and kept the real binary as <exec>.real.
 	_, err = os.Stat(filepath.Join(path, "Contents", "MacOS", exec+".real"))
+	isTwin := err == nil || str("TwinOriginalBundleID") != ""
 	return App{
 		Name:    strings.TrimSuffix(filepath.Base(path), ".app"),
 		Path:    path,
 		ID:      str("CFBundleIdentifier"),
 		Version: str("CFBundleShortVersionString"),
 		Exec:    exec,
-		IsClone: err == nil,
+		IsClone: isTwin,
 	}, true
 }

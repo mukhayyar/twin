@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Twin promo</title>
+<style>
+  :root { --violet: #7D56F4; --pink: #FF5FAF; --bg: #0B0716; --text: #F4F1FF; --muted: #A9A2C7; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); }
+  body { font-family: -apple-system, "SF Pro Display", system-ui, sans-serif; color: var(--text); -webkit-font-smoothing: antialiased; }
+  img { display: block; }
+
+  .bg { position: absolute; inset: 0; background: var(--bg); overflow: hidden; }
+  .orb { position: absolute; border-radius: 50%; filter: blur(120px); opacity: .55; }
+  .orb.a { width: 900px; height: 900px; left: -200px; top: -300px; background: var(--violet); }
+  .orb.b { width: 800px; height: 800px; right: -250px; bottom: -350px; background: var(--pink); opacity: .4; }
+  .orb.c { width: 500px; height: 500px; left: 45%; top: 55%; background: #3D7BFF; opacity: .22; }
+  .grain { position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,.035) 1px, transparent 1px); background-size: 3px 3px; }
+
+  .scene { position: absolute; inset: 0; opacity: 0; perspective: 1800px; }
+  .center { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .grad { background: linear-gradient(100deg, #B9A6FF 0%, var(--violet) 35%, var(--pink) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  h2 { font-size: 84px; font-weight: 800; letter-spacing: -0.035em; text-align: center; }
+  .sub { font-size: 32px; color: var(--muted); font-weight: 500; letter-spacing: -0.01em; text-align: center; margin-top: 14px; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+  /* 1 · logo */
+  #s1 .logo { display: flex; align-items: center; gap: 56px; }
+  #s1 img { width: 300px; height: 300px; filter: drop-shadow(0 40px 80px rgba(125,86,244,.55)); }
+  #s1 h1 { font-size: 220px; font-weight: 800; letter-spacing: -0.055em; line-height: .9; }
+  #s1 .tag { font-size: 52px; font-weight: 600; color: var(--muted); letter-spacing: -0.02em; margin-top: 18px; }
+  #s1 .tag span { display: inline-block; opacity: 0; }
+
+  /* 2 · one app, many lives */
+  #s2 .titles { position: absolute; top: 120px; left: 0; right: 0; height: 110px; }
+  #s2 .titles h2 { position: absolute; left: 0; right: 0; }
+  #s2 .stage { position: absolute; left: 0; right: 0; top: 300px; height: 480px; }
+  #s2 .icon { position: absolute; left: 50%; top: 0; width: 480px; margin-left: -240px; text-align: center; }
+  #s2 .icon img { width: 360px; height: 360px; margin: 0 auto; filter: drop-shadow(0 30px 60px rgba(0,0,0,.5)); }
+  #s2 .cap { font-size: 26px; font-weight: 700; margin-top: 6px; opacity: 0; }
+  #s2 .cap small { display: block; font-size: 19px; color: var(--muted); font-weight: 500; margin-top: 6px; }
+  #s2 .foot { position: absolute; bottom: 110px; left: 0; right: 0; }
+
+  /* 3 · the desktop */
+  #s3 { perspective: none; overflow: hidden; }
+  #cam { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+  .wall { position: absolute; inset: 0; background:
+      radial-gradient(1100px 820px at 12% 18%, #7b5cff 0%, transparent 62%),
+      radial-gradient(1000px 760px at 88% 22%, #ff6fb1 0%, transparent 58%),
+      radial-gradient(1500px 900px at 55% 115%, #ffa45c 0%, transparent 62%),
+      linear-gradient(160deg, #24175e, #57288a 48%, #b54d7c); }
+  .wall::after { content: ""; position: absolute; inset: 0; background: radial-gradient(1400px 700px at 50% 45%, rgba(255,255,255,.10), transparent 70%); }
+
+  .menubar { position: absolute; left: 0; right: 0; top: 0; height: 36px; display: flex; align-items: center; gap: 26px; padding: 0 22px;
+             font-size: 17px; font-weight: 500; color: #fff; background: rgba(20,10,40,.28); backdrop-filter: blur(30px) saturate(1.6); z-index: 50; }
+  .menubar b { font-weight: 700; }
+  .menubar .right { margin-left: auto; display: flex; gap: 22px; align-items: center; }
+  .menubar svg { display: block; }
+
+  .dock { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; align-items: center; padding: 10px 12px;
+          border-radius: 30px; background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.38);
+          backdrop-filter: blur(34px) saturate(1.7); box-shadow: 0 20px 60px rgba(20,0,40,.35); z-index: 40; }
+  .slot { position: relative; width: 76px; height: 76px; margin: 0 6px; flex: none; }
+  .slot img { width: 76px; height: 76px; }
+  .slot.new { width: 0; margin: 0; }
+  .slot.new img { transform: scale(0); }
+  .slot .dot { position: absolute; left: 50%; bottom: -8px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: rgba(255,255,255,.9); opacity: 0; }
+  .sep { width: 24px; height: 64px; flex: none; display: flex; justify-content: center; }
+  .sep::before { content: ""; width: 1px; background: rgba(255,255,255,.45); }
+
+  .win { position: absolute; border-radius: 16px; overflow: hidden; opacity: 0;
+         box-shadow: 0 40px 100px rgba(10,0,30,.55), 0 0 0 1px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.12); }
+  .lights { position: absolute; left: 18px; top: 18px; display: flex; gap: 9px; z-index: 5; }
+  .lights i { width: 14px; height: 14px; border-radius: 50%; display: block; }
+  .lights i:nth-child(1) { background: #FF5F57; } .lights i:nth-child(2) { background: #FEBC2E; } .lights i:nth-child(3) { background: #28C840; }
+  .titlebar { height: 50px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 600; position: relative; }
+
+  /* Finder */
+  #finder { left: 100px; top: 120px; width: 780px; height: 520px; background: #fff; color: #1d1d1f; display: flex; opacity: 1; }
+  #finder .side { width: 190px; background: rgba(240,238,246,.96); padding: 64px 14px 0; font-size: 15px; }
+  #finder .side h6 { font-size: 12px; color: #8a8797; font-weight: 700; margin: 0 0 8px 8px; }
+  #finder .side p { padding: 7px 10px; border-radius: 8px; color: #333; font-weight: 500; }
+  #finder .side p.on { background: rgba(125,86,244,.16); color: #4b2fd0; }
+  #finder .main { flex: 1; display: flex; flex-direction: column; }
+  #finder .bar { height: 54px; display: flex; align-items: center; padding: 0 22px; font-size: 18px; font-weight: 700; border-bottom: 1px solid #ececf1; }
+  #finder .grid { display: grid; grid-template-columns: repeat(4, 140px); gap: 18px 0; padding: 26px 18px; }
+  #finder .app { text-align: center; font-size: 14px; font-weight: 500; color: #333; }
+  #finder .app img { width: 92px; height: 92px; margin: 0 auto 6px; }
+
+  /* Twin */
+  /* The app's frames carry their own window chrome and rounded corners. */
+  #twin { left: 930px; top: 120px; width: 880px; height: 560px; background: none; box-shadow: none; border-radius: 0; overflow: visible; }
+  #twin img.frame { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 36px 50px rgba(10,0,30,.5)); }
+
+  /* Terminal */
+  #term { left: 520px; top: 165px; width: 880px; height: 600px; background: #1e1e2e; }
+  #term .titlebar { color: #b9b4d6; background: #232336; border-bottom: 1px solid rgba(255,255,255,.05); }
+  #term .clip { position: absolute; left: 0; top: 50px; width: 880px; height: 550px; overflow: hidden; }
+  #term video { width: 880px; height: 550px; }
+
+  /* Chat twins */
+  .chat { top: 96px; width: 860px; height: 650px; background: #26232f; display: flex; color: #e9e6f5; }
+  #chat-work { left: 90px; } #chat-personal { left: 970px; }
+  .chat .rail { width: 78px; background: #1b1922; padding: 62px 0 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .chat .rail i { width: 48px; height: 48px; border-radius: 16px; display: block; }
+  .chat .chans { width: 220px; background: #211e29; padding: 62px 14px 0; position: relative; }
+  .chat .chans h5 { font-size: 17px; font-weight: 750; margin: 0 6px 16px; }
+  .chat .chans p { font-size: 15.5px; color: #a7a2bd; padding: 7px 8px; border-radius: 7px; }
+  .chat .chans p.on { background: rgba(255,255,255,.08); color: #fff; }
+  .chat .me { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: #1b1922; display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 14px; font-weight: 650; }
+  .chat .me span { display: block; font-size: 12px; color: #8f8aa6; font-weight: 500; }
+  .av { width: 38px; height: 38px; border-radius: 50%; flex: none; display: grid; place-items: center; font-weight: 800; font-size: 15px; color: #fff; }
+  .chat .msgs { flex: 1; padding: 62px 26px 0; position: relative; }
+  .chat .msgs h4 { font-size: 18px; font-weight: 750; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,.07); margin-bottom: 18px; }
+  .msg { display: flex; gap: 14px; margin-bottom: 20px; }
+  .msg b { font-size: 15.5px; } .msg small { color: #8f8aa6; font-size: 12.5px; margin-left: 8px; }
+  .msg p { font-size: 15.5px; color: #d5d1e6; margin-top: 4px; line-height: 1.4; }
+  .chat .compose { position: absolute; left: 26px; right: 26px; bottom: 22px; height: 50px; border-radius: 12px; background: #32303d; color: #8f8aa6; font-size: 15px; padding: 0 18px; display: flex; align-items: center; }
+  .chat .pill { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 6; padding: 4px 14px; border-radius: 999px; font-size: 14px; font-weight: 800; color: #fff; border: 2px solid rgba(255,255,255,.85); }
+
+  #cursor { position: absolute; left: 0; top: 0; width: 30px; height: 44px; z-index: 100; transform-origin: 3px 3px; pointer-events: none; }
+  #ghost, #fly { position: absolute; left: 0; top: 0; width: 92px; height: 92px; z-index: 90; opacity: 0; }
+  .ripple { position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; border: 3px solid rgba(255,255,255,.9); opacity: 0; z-index: 99; }
+
+  .caption { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); z-index: 200; padding: 16px 34px; border-radius: 999px;
+             font-size: 34px; font-weight: 750; letter-spacing: -0.02em; white-space: nowrap; color: #fff; opacity: 0;
+             background: rgba(16,8,32,.62); border: 1px solid rgba(255,255,255,.16); backdrop-filter: blur(24px); box-shadow: 0 20px 50px rgba(0,0,0,.35); }
+
+  #switcher { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 150; padding: 26px 30px 20px; border-radius: 34px;
+              background: rgba(30,22,48,.62); border: 1px solid rgba(255,255,255,.2); backdrop-filter: blur(40px) saturate(1.6); opacity: 0; }
+  #switcher .icons { display: flex; gap: 22px; position: relative; }
+  #switcher img { width: 132px; height: 132px; position: relative; z-index: 2; }
+  #switcher .sel { position: absolute; left: -10px; top: -10px; width: 152px; height: 152px; border-radius: 30px; background: rgba(255,255,255,.18); z-index: 1; }
+  #switcher .name { text-align: center; font-size: 22px; font-weight: 650; margin-top: 14px; height: 28px; position: relative; }
+  #switcher .name span { position: absolute; left: 0; right: 0; opacity: 0; }
+
+  /* 4 · features */
+  #s4 .grid { display: grid; grid-template-columns: repeat(2, 640px); gap: 36px; margin-top: 70px; }
+  .card { padding: 44px 48px; border-radius: 32px; background: linear-gradient(160deg, rgba(255,255,255,.09), rgba(255,255,255,.03)); border: 1px solid rgba(255,255,255,.12); opacity: 0; }
+  .card .ico { width: 64px; height: 64px; border-radius: 18px; display: grid; place-items: center; margin-bottom: 22px; }
+  .card h3 { font-size: 38px; font-weight: 750; letter-spacing: -0.02em; }
+  .card p { font-size: 25px; color: var(--muted); margin-top: 10px; line-height: 1.35; }
+  .card .row { display: flex; gap: 10px; margin-top: 18px; }
+  .card .row img { width: 64px; height: 64px; }
+
+  /* 5 · outro */
+  #s5 img { width: 220px; height: 220px; filter: drop-shadow(0 30px 70px rgba(125,86,244,.6)); }
+  #s5 h1 { font-size: 150px; font-weight: 800; letter-spacing: -0.05em; margin-top: 18px; }
+  #s5 .url { font-size: 44px; font-weight: 600; margin-top: 10px; }
+  #s5 .pills { display: flex; gap: 18px; margin-top: 44px; }
+  #s5 .pill { padding: 16px 30px; border-radius: 999px; font-size: 26px; font-weight: 650; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); }
+  #s5 .cmd { margin-top: 30px; font-size: 24px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="bg"><div class="orb a"></div><div class="orb b"></div><div class="orb c"></div><div class="grain"></div></div>
+
+<section id="s1" class="scene center">
+  <div class="logo">
+    <img src="media/twin-icon.png" alt="">
+    <div><h1 class="grad">Twin</h1><p class="tag" id="tagline">One app. Many lives.</p></div>
+  </div>
+</section>
+
+<section id="s2" class="scene">
+  <div class="titles"><h2 id="t-one">One app.</h2><h2 id="t-many" class="grad" style="opacity:0">Many lives.</h2></div>
+  <div class="stage">
+    <div class="icon" id="orig"><img src="media/discord.png" alt=""></div>
+    <div class="icon twin"><img src="media/discord-work.png" alt=""><div class="cap">Discord-Work<small class="mono">~/.app_profiles/Discord-Work</small></div></div>
+    <div class="icon twin"><img src="media/discord-personal.png" alt=""><div class="cap">Discord-Personal<small class="mono">~/.app_profiles/Discord-Personal</small></div></div>
+    <div class="icon twin"><img src="media/discord-hobby.png" alt=""><div class="cap">Discord-Hobby<small class="mono">~/.app_profiles/Discord-Hobby</small></div></div>
+  </div>
+  <p class="sub foot" id="s2-foot">Separate logins, settings and data. Side by side.</p>
+</section>
+
+<section id="s3" class="scene">
+  <div id="cam">
+    <div class="wall"></div>
+    <div class="menubar">
+      <svg width="17" height="20" viewBox="0 0 17 20" fill="#fff"><path d="M14.1 10.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.3-.9-1.700 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.6 1.3 10.1.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.300-.8 1.6 0 2 .8 3.3.8 1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.900 0 0-2.7-1-2.7-3.9zM11.6 3c.7-.9 1.2-2 1-3.2-1 0-2.3.7-3 1.6-.7.8-1.2 2-1.1 3.1 1.2.1 2.3-.6 3.1-1.5z"/></svg>
+      <b id="mb-app">Finder</b><span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span>
+      <div class="right">
+        <svg width="22" height="16" viewBox="0 0 22 16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M1.5 5.5a14 14 0 0 1 19 0"/><path d="M5 9a9 9 0 0 1 12 0"/><path d="M8.5 12.5a4 4 0 0 1 5 0"/></svg>
+        <svg width="30" height="15" viewBox="0 0 30 15" fill="none"><rect x="1" y="1" width="24" height="13" rx="3.5" stroke="#fff" stroke-width="1.6"/><rect x="3.5" y="3.5" width="17" height="8" rx="1.8" fill="#fff"/><path d="M27.5 5v5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="7.5" cy="7.5" r="5.5"/><path d="m12 12 4.5 4.5"/></svg>
+        <span>Sun Oct 25&nbsp;&nbsp;9:41 AM</span>
+      </div>
+    </div>
+
+    <div class="win" id="finder">
+      <div class="lights"><i></i><i></i><i></i></div>
+      <div class="side"><h6>Favorites</h6><p>AirDrop</p><p>Recents</p><p class="on">Applications</p><p>Desktop</p><p>Documents</p><p>Downloads</p></div>
+      <div class="main">
+        <div class="bar">Applications</div>
+        <div class="grid">
+          <div class="app"><img src="media/dock/arc.png" alt="">Arc</div>
+          <div class="app" id="fi-discord"><img src="media/dock/discord.png" alt="">Discord</div>
+          <div class="app"><img src="media/dock/ghostty.png" alt="">Ghostty</div>
+          <div class="app"><img src="media/dock/chrome.png" alt="">Google Chrome</div>
+          <div class="app"><img src="media/dock/safari.png" alt="">Safari</div>
+          <div class="app"><img src="media/dock/twin.png" alt="">Twin</div>
+          <div class="app"><img src="media/dock/zoom.png" alt="">zoom.us</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="win" id="twin">
+      <img class="frame" id="gui-empty" src="media/app-empty.png" alt="">
+      <img class="frame" id="gui" alt="" style="opacity:0">
+    </div>
+
+    <div class="win" id="term">
+      <div class="lights"><i></i><i></i><i></i></div>
+      <div class="titlebar">twin — zsh</div>
+      <div class="clip"><video id="cli" src="media/promo-cli.mp4" muted playsinline preload="auto"></video></div>
+    </div>
+
+    <div class="win chat" id="chat-work">
+      <div class="lights"><i></i><i></i><i></i></div>
+      <div class="pill" style="background:#0A84FF">Work</div>
+      <div class="rail"><i style="background:#0A84FF"></i><i style="background:#3b3747"></i><i style="background:#3b3747"></i><i style="background:#3b3747"></i></div>
+      <div class="chans"><h5>Acme Corp</h5><p class="on"># standup</p><p># design-review</p><p># launch-q4</p><p># random</p>
+        <div class="me"><div class="av" style="background:#0A84FF">A</div><div>Alex Rivera<span>alex@acme.com</span></div></div></div>
+      <div class="msgs"><h4># standup</h4>
+        <div class="msg"><div class="av" style="background:#5E5CE6">P</div><div><b>Priya</b><small>9:02 AM</small><p>Shipping the onboarding flow today 🚀</p></div></div>
+        <div class="msg"><div class="av" style="background:#FF9F0A">M</div><div><b>Marco</b><small>9:05 AM</small><p>Design review moved to 2pm.</p></div></div>
+        <div class="msg"><div class="av" style="background:#0A84FF">A</div><div><b>Alex Rivera</b><small>9:41 AM</small><p>On it. Notes in #design-review.</p></div></div>
+        <div class="compose">Message #standup</div></div>
+    </div>
+
+    <div class="win chat" id="chat-personal">
+      <div class="lights"><i></i><i></i><i></i></div>
+      <div class="pill" style="background:#30D158">Personal</div>
+      <div class="rail"><i style="background:#30D158"></i><i style="background:#3b3747"></i><i style="background:#3b3747"></i></div>
+      <div class="chans"><h5>Weekend Crew</h5><p class="on"># game-night</p><p># hiking</p><p># memes</p>
+        <div class="me"><div class="av" style="background:#30D158">A</div><div>alexplays<span>Online</span></div></div></div>
+      <div class="msgs"><h4># game-night</h4>
+        <div class="msg"><div class="av" style="background:#FF375F">J</div><div><b>Jo</b><small>8:55 AM</small><p>Who's in for Friday? 🎲</p></div></div>
+        <div class="msg"><div class="av" style="background:#40C8E0">S</div><div><b>Sam</b><small>9:20 AM</small><p>Me! Bringing snacks.</p></div></div>
+        <div class="msg"><div class="av" style="background:#30D158">A</div><div><b>alexplays</b><small>9:41 AM</small><p>Count me in 🙌</p></div></div>
+        <div class="compose">Message #game-night</div></div>
+    </div>
+
+    <div class="dock" id="dock">
+      <div class="slot" data-k="finder"><img src="media/dock/finder.png" alt=""><i class="dot" style="opacity:1"></i></div>
+      <div class="slot" data-k="safari"><img src="media/dock/safari.png" alt=""><i class="dot"></i></div>
+      <div class="slot" data-k="messages"><img src="media/dock/messages.png" alt=""><i class="dot"></i></div>
+      <div class="slot" data-k="notes"><img src="media/dock/notes.png" alt=""><i class="dot"></i></div>
+      <div class="slot" data-k="music"><img src="media/dock/music.png" alt=""><i class="dot"></i></div>
+      <div class="slot" data-k="ghostty"><img src="media/dock/ghostty.png" alt=""><i class="dot"></i></div>
+      <div class="slot" data-k="discord"><img src="media/dock/discord.png" alt=""><i class="dot"></i></div>
+      <div class="slot" data-k="twin"><img src="media/dock/twin.png" alt=""><i class="dot"></i></div>
+      <div class="slot new" data-k="work"><img src="media/dock/discord-work.png" alt=""><i class="dot"></i></div>
+      <div class="slot new" data-k="personal"><img src="media/dock/discord-personal.png" alt=""><i class="dot"></i></div>
+      <div class="slot" data-k="settings"><img src="media/dock/settings.png" alt=""><i class="dot"></i></div>
+      <div class="sep"></div>
+      <div class="slot" data-k="trash"><img src="media/dock/trash.png" alt=""></div>
+    </div>
+
+    <img id="ghost" src="media/dock/discord.png" alt="">
+    <img id="fly" alt="">
+    <div class="ripple" id="ripple"></div>
+    <svg id="cursor" viewBox="0 0 30 44"><path d="M3 3v31l8.2-7.6 5.1 12.1 5.4-2.3-5.1-11.8H28L3 3z" fill="#000" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/></svg>
+  </div>
+
+  <div class="caption" id="cap"></div>
+  <div id="switcher">
+    <div class="icons"><div class="sel" id="sw-sel"></div>
+      <img src="media/dock/discord-work.png" alt=""><img src="media/dock/discord-personal.png" alt=""><img src="media/dock/discord.png" alt="">
+      <img src="media/dock/twin.png" alt=""><img src="media/dock/ghostty.png" alt=""><img src="media/dock/finder.png" alt=""></div>
+    <div class="name"><span>Discord-Work</span><span>Discord-Personal</span><span>Discord</span></div>
+  </div>
+</section>
+
+<section id="s4" class="scene center">
+  <h2>Everything a twin needs.</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="ico" style="background:#0A84FF"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+      <h3>Isolated profiles</h3><p>Each twin gets its own home and ~/Library. Logins, caches and settings never mix.</p>
+    </div>
+    <div class="card">
+      <div class="ico" style="background:#FF9F0A"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.6-.7 1.6-1.6 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16c3.3 0 6-2.7 6-6C22 6 17.5 2 12 2z"/></svg></div>
+      <h3>Auto icon &amp; badge</h3><p>Recolored to match its label, then stamped Work, Personal or Hobby.</p>
+      <div class="row"><img src="media/zoom.us-work.png" alt=""><img src="media/arc-personal.png" alt=""><img src="media/ghostty-hobby.png" alt=""><img src="media/google-chrome-school.png" alt=""></div>
+    </div>
+    <div class="card">
+      <div class="ico" style="background:#30D158"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></div>
+      <h3>Drag &amp; drop</h3><p>Drop any .app on the window, the Dock icon, or even the terminal.</p>
+    </div>
+    <div class="card">
+      <div class="ico" style="background:#BF5AF2"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2.5"/><path d="M8 21h8M12 18v3M6 9l3 2.5L6 14M11 14h4"/></svg></div>
+      <h3>Two ways to run</h3><p>A native SwiftUI app and a CLI. Universal for Apple silicon and Intel.</p>
+    </div>
+  </div>
+</section>
+
+<section id="s5" class="scene center">
+  <img src="media/twin-icon.png" alt="">
+  <h1 class="grad">Twin</h1>
+  <p class="url">github.com/mukhayyar/twin</p>
+  <div class="pills"><span class="pill">✦ Twin.app</span><span class="pill">❯ twin CLI</span><span class="pill">Free &amp; open source</span></div>
+  <p class="cmd mono">curl -fsSL https://raw.githubusercontent.com/mukhayyar/twin/main/install.sh | bash</p>
+</section>
+
+<script src="node_modules/gsap/dist/gsap.min.js"></script>
+<script>
+const media = { gui: Object.assign({ count: 0, fps: 30 }, (window.MEDIA || {}).gui) };
+// When, inside the app's scripted demo, the Create button is pressed, and where
+// it sits as a fraction of the window. Measured from the recorded frames.
+const createAt = media.gui.createAt ?? 3.7;
+const createPos = media.gui.createPos ?? [0.62, 0.705];
+const guiLen = media.gui.count ? media.gui.count / media.gui.fps : 9;
+
+// Terminal clip (promo-cli.mp4): where to start, how fast, and when the
+// "is ready" box appears in clip time.
+const CLI = { from: 0.4, speed: 1.15, done: 8.9 };
+
+// ── Desktop geometry (screen pixels, camera at rest) ──
+const DOCK_Y = 1020;
+// The Dock is centered, so slots shift as twins are added. slotX(i, extra)
+// gives slot i's center with `extra` new slots already in the Dock.
+const slotX = (i, extra) => { const w = 928 + 88 * extra; return 960 - w / 2 + 12 + i * 88 + 44; };
+const WIN = { twin: [930, 120, 880, 560], term: [520, 165, 880, 600], work: [90, 96, 860, 650], personal: [970, 96, 860, 650] };
+const center = ([x, y, w, h]) => [x + w / 2, y + h / 2];
+
+// ── Desktop event times (seconds from the start of the desktop scene) ──
+const E = {};
+E.clickTwin = 1.6;
+E.grab = 3.4;
+E.guiStart = 4.5;                  // the dragged app enters Twin's window
+E.release = 5.2;
+E.create = E.guiStart + createAt;
+E.guiEnd = E.guiStart + guiLen;
+E.flyWork = E.guiEnd - 0.8;
+E.clickTerm = E.flyWork + 1.7;
+E.cliStart = E.clickTerm + 0.75;
+E.flyPersonal = E.cliStart + (CLI.done - CLI.from) / CLI.speed + 0.3;
+E.tidy = E.flyPersonal + 1.5;
+E.clickWork = E.tidy + 0.9;
+E.clickPersonal = E.clickWork + 1.7;
+E.switcher = E.clickPersonal + 2.6;
+E.end = E.switcher + 3.4;
+
+const T = { s1: 0, s2: 3.4, s3: 9.4 };
+T.s4 = T.s3 + E.end; T.s5 = T.s4 + 4.2; T.end = T.s5 + 4.6;
+const D = (t) => T.s3 + t;
+
+const tag = document.getElementById('tagline');
+tag.innerHTML = tag.textContent.split(' ').map(w => `<span>${w}&nbsp;</span>`).join('');
+
+const tl = gsap.timeline({ paused: true });
+const show = (sel, at) => tl.set(sel, { opacity: 1 }, at);
+const hide = (sel, at, d = 0.4) => tl.to(sel, { opacity: 0, scale: 0.98, duration: d, ease: 'power2.in' }, at);
+
+tl.to('.orb.a', { x: 260, y: 140, duration: T.end, ease: 'sine.inOut' }, 0)
+  .to('.orb.b', { x: -220, y: -120, duration: T.end, ease: 'sine.inOut' }, 0)
+  .to('.orb.c', { x: -420, y: -260, scale: 1.4, duration: T.end, ease: 'sine.inOut' }, 0);
+
+// 1 · logo
+show('#s1', T.s1);
+tl.from('#s1 img', { scale: 0.5, rotate: -12, opacity: 0, filter: 'blur(20px)', duration: 1.1, ease: 'back.out(1.6)' }, 0.1)
+  .from('#s1 h1', { x: -40, opacity: 0, duration: 0.9, ease: 'power3.out' }, 0.45)
+  .to('#tagline span', { opacity: 1, duration: 0.35, stagger: 0.12, ease: 'power1.out' }, 1.1)
+  .from('#tagline span', { y: 18, duration: 0.5, stagger: 0.12, ease: 'power3.out' }, 1.1);
+hide('#s1', T.s2 - 0.45);
+
+// 2 · one app → many lives
+show('#s2', T.s2);
+const spread = [-520, 0, 520];
+tl.from('#orig', { scale: 0.7, opacity: 0, duration: 0.7, ease: 'back.out(1.5)' }, T.s2 + 0.1)
+  .from('#t-one', { y: 30, opacity: 0, duration: 0.6, ease: 'power3.out' }, T.s2 + 0.15)
+  .set('#s2 .twin', { opacity: 0, scale: 0.6 }, T.s2)
+  .to('#t-one', { y: -30, opacity: 0, duration: 0.4, ease: 'power2.in' }, T.s2 + 1.7)
+  .fromTo('#t-many', { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: 'power3.out' }, T.s2 + 1.95)
+  .to('#orig', { scale: 1.25, opacity: 0, filter: 'blur(12px)', duration: 0.55, ease: 'power2.in' }, T.s2 + 1.7);
+document.querySelectorAll('#s2 .twin').forEach((el, i) => {
+  tl.to(el, { opacity: 1, scale: 1, x: spread[i], duration: 1.0, ease: 'back.out(1.3)' }, T.s2 + 1.9 + i * 0.09)
+    .to(el.querySelector('.cap'), { opacity: 1, duration: 0.5 }, T.s2 + 2.7 + i * 0.09);
+});
+tl.from('#s2-foot', { y: 20, opacity: 0, duration: 0.6, ease: 'power3.out' }, T.s2 + 3.2);
+hide('#s2', T.s3 - 0.45);
+
+// 3 · the desktop ─────────────────────────────────────────────────────────
+show('#s3', T.s3);
+tl.from('#cam', { scale: 1.08, opacity: 0, duration: 0.9, ease: 'power2.out' }, D(0));
+
+const cursorAt = (x, y) => ({ x: x - 3, y: y - 3 });
+tl.set('#cursor', cursorAt(760, 760), D(0));
+const move = (x, y, at, d = 0.7, ease = 'power2.inOut') => tl.to('#cursor', { ...cursorAt(x, y), duration: d, ease }, D(at));
+const click = (x, y, at) => {
+  tl.to('#cursor', { scale: 0.82, duration: 0.08 }, D(at)).to('#cursor', { scale: 1, duration: 0.14 }, D(at + 0.08))
+    .fromTo('#ripple', { left: x, top: y, scale: 0.3, opacity: 0.9 }, { scale: 1.3, opacity: 0, duration: 0.45, ease: 'power2.out' }, D(at));
+};
+const caption = (text, at, until) => {
+  tl.call(() => { document.getElementById('cap').textContent = text; }, null, D(at) - 0.001)
+    .fromTo('#cap', { opacity: 0, y: -14 }, { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' }, D(at))
+    .to('#cap', { opacity: 0, y: -8, duration: 0.25, ease: 'power2.in' }, D(until));
+};
+const menuApp = (name, at) => tl.call(() => { document.getElementById('mb-app').textContent = name; }, null, D(at));
+const bounce = (k, at, times = 2) => tl.to(`.slot[data-k="${k}"] img`, { y: -34, duration: 0.2, ease: 'power2.out', yoyo: true, repeat: times * 2 - 1 }, D(at));
+const running = (k, at) => tl.to(`.slot[data-k="${k}"] .dot`, { opacity: 1, duration: 0.2 }, D(at));
+const openWin = (sel, rect, fromX, at) => {
+  const [cx, cy] = center(rect);
+  tl.fromTo(sel, { opacity: 0, scale: 0.12, x: fromX - cx, y: DOCK_Y - cy },
+    { opacity: 1, scale: 1, x: 0, y: 0, duration: 0.6, ease: 'power3.out' }, D(at));
+};
+const closeWin = (sel, rect, toX, at) => {
+  const [cx, cy] = center(rect);
+  tl.to(sel, { opacity: 0, scale: 0.1, x: toX - cx, y: DOCK_Y - cy, duration: 0.5, ease: 'power3.in' }, D(at));
+};
+// camera(scale, focusX, focusY): put the focus point at screen center,
+// clamped so the wallpaper always fills the frame.
+const camera = (s, fx, fy, at, d = 1.1) => {
+  const x = Math.min(0, Math.max(1920 - 1920 * s, 960 - s * fx));
+  const y = Math.min(0, Math.max(1080 - 1080 * s, 560 - s * fy));
+  tl.to('#cam', { scale: s, x, y, duration: d, ease: 'power3.inOut' }, D(at));
+};
+const addSlot = (k, at) => tl.to(`.slot[data-k="${k}"]`, { width: 76, marginLeft: 6, marginRight: 6, duration: 0.5, ease: 'power2.out' }, D(at))
+  .to(`.slot[data-k="${k}"] img`, { scale: 1, duration: 0.35, ease: 'back.out(2)' }, D(at + 0.35));
+const fly = (src, from, to, at) => {
+  tl.set('#fly', { attr: { src }, x: from[0] - 46, y: from[1] - 46, scale: 1.6, opacity: 0 }, D(at))
+    .to('#fly', { opacity: 1, duration: 0.15 }, D(at))
+    .to('#fly', { x: to[0] - 46, duration: 0.9, ease: 'power1.inOut' }, D(at))
+    .to('#fly', { y: to[1] - 46, scale: 0.83, duration: 0.9, ease: 'back.in(1.2)' }, D(at))
+    .to('#fly', { opacity: 0, duration: 0.1 }, D(at + 0.9));
+};
+
+// Open Twin from the Dock.
+caption('Open Twin.', 0.6, 2.9);
+move(slotX(7, 0), DOCK_Y, 0.6, 0.9);
+click(slotX(7, 0), DOCK_Y, E.clickTwin);
+bounce('twin', E.clickTwin + 0.05, 1);
+running('twin', E.clickTwin + 0.3);
+openWin('#twin', WIN.twin, slotX(7, 0), E.clickTwin + 0.35);
+menuApp('Twin', E.clickTwin + 0.4);
+
+// Drag Discord from Finder into Twin.
+const fi = document.getElementById('fi-discord').getBoundingClientRect();
+const grab = [fi.left + fi.width / 2, fi.top + 46];
+const drop = [WIN.twin[0] + 440, WIN.twin[1] + 300];
+caption('Drop in any app.', 3.1, 5.9);
+move(grab[0], grab[1], 2.5, 0.8);
+click(grab[0], grab[1], E.grab);
+tl.set('#ghost', { x: grab[0] - 46, y: grab[1] - 46, opacity: 0 }, D(E.grab))
+  .to('#ghost', { opacity: 0.85, duration: 0.15 }, D(E.grab + 0.1));
+move(drop[0], drop[1], E.grab + 0.15, 1.5, 'power1.inOut');
+tl.to('#ghost', { x: drop[0] - 30, y: drop[1] - 30, duration: 1.5, ease: 'power1.inOut' }, D(E.grab + 0.15))
+  .to('#ghost', { scale: 0.4, opacity: 0, duration: 0.3, ease: 'power2.in' }, D(E.release));
+tl.set('#gui', { opacity: 1 }, D(E.guiStart)).to('#gui-empty', { opacity: 0, duration: 0.15 }, D(E.guiStart));
+
+// Name it, clone it: zoom in on Twin while the real app plays.
+caption('Name it. Clone it.', E.release + 0.3, E.guiEnd - 1.1);
+camera(1.55, ...center(WIN.twin), E.release + 0.1);
+const createXY = [WIN.twin[0] + WIN.twin[2] * createPos[0], WIN.twin[1] + WIN.twin[3] * createPos[1]];
+move(createXY[0], createXY[1], E.create - 0.9, 0.8);
+click(createXY[0], createXY[1], E.create);
+camera(1, 960, 540, E.guiEnd - 1.3);
+
+// The twin lands in the Dock.
+caption('A new twin lands in your Dock.', E.flyWork, E.clickTerm + 0.2);
+addSlot('work', E.flyWork + 0.4);
+fly('media/dock/discord-work.png', center(WIN.twin), [slotX(8, 1), DOCK_Y], E.flyWork);
+
+// Make another from the terminal.
+caption('Prefer the terminal? One command.', E.clickTerm + 0.4, E.flyPersonal + 1.2);
+move(slotX(5, 1), DOCK_Y, E.clickTerm - 0.8, 0.8);
+click(slotX(5, 1), DOCK_Y, E.clickTerm);
+bounce('ghostty', E.clickTerm + 0.05, 1);
+running('ghostty', E.clickTerm + 0.3);
+openWin('#term', WIN.term, slotX(5, 1), E.clickTerm + 0.3);
+menuApp('Ghostty', E.clickTerm + 0.4);
+move(1500, 860, E.clickTerm + 0.5, 0.8);
+camera(1.42, ...center(WIN.term), E.clickTerm + 0.6);
+camera(1, 960, 540, E.flyPersonal - 0.7);
+addSlot('personal', E.flyPersonal + 0.4);
+fly('media/dock/discord-personal.png', center(WIN.term), [slotX(9, 2), DOCK_Y], E.flyPersonal);
+
+// Tidy up, then launch both twins side by side.
+closeWin('#finder', [100, 120, 780, 520], slotX(0, 2), E.tidy);
+closeWin('#twin', WIN.twin, slotX(7, 2), E.tidy + 0.1);
+closeWin('#term', WIN.term, slotX(5, 2), E.tidy + 0.2);
+menuApp('Finder', E.tidy + 0.3);
+caption('Two accounts. Side by side.', E.clickWork - 0.2, E.switcher - 0.1);
+move(slotX(8, 2), DOCK_Y, E.clickWork - 0.8, 0.8);
+click(slotX(8, 2), DOCK_Y, E.clickWork);
+bounce('work', E.clickWork + 0.05, 2);
+running('work', E.clickWork + 0.4);
+openWin('#chat-work', WIN.work, slotX(8, 2), E.clickWork + 0.75);
+menuApp('Discord', E.clickWork + 0.8);
+move(slotX(9, 2), DOCK_Y, E.clickPersonal - 0.6, 0.55);
+click(slotX(9, 2), DOCK_Y, E.clickPersonal);
+bounce('personal', E.clickPersonal + 0.05, 2);
+running('personal', E.clickPersonal + 0.4);
+openWin('#chat-personal', WIN.personal, slotX(9, 2), E.clickPersonal + 0.75);
+menuApp('Discord', E.clickPersonal + 0.8);
+move(1180, 640, E.clickPersonal + 1.0, 1.0);
+
+// ⌘-Tab: each twin is recognizable at a glance.
+caption('Tell them apart at a glance.', E.switcher + 0.1, E.end - 0.5);
+tl.fromTo('#switcher', { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.3, ease: 'power2.out' }, D(E.switcher))
+  .set('#switcher .name span:nth-child(1)', { opacity: 1 }, D(E.switcher));
+[1, 0, 1, 2].forEach((pos, i) => {
+  const at = D(E.switcher + 0.7 + i * 0.55);
+  tl.to('#sw-sel', { x: pos * 154, duration: 0.18, ease: 'power2.out' }, at)
+    .set('#switcher .name span', { opacity: 0 }, at)
+    .set(`#switcher .name span:nth-child(${pos + 1})`, { opacity: 1 }, at);
+});
+tl.to('#switcher', { opacity: 0, duration: 0.25 }, D(E.end - 0.7));
+hide('#s3', T.s4 - 0.45);
+
+// 4 · features
+show('#s4', T.s4);
+tl.from('#s4 h2', { y: 30, opacity: 0, duration: 0.6, ease: 'power3.out' }, T.s4 + 0.05)
+  .fromTo('#s4 .card', { y: 50, opacity: 0, scale: 0.96 }, { y: 0, opacity: 1, scale: 1, duration: 0.7, stagger: 0.14, ease: 'power3.out' }, T.s4 + 0.3);
+hide('#s4', T.s5 - 0.45);
+
+// 5 · outro
+show('#s5', T.s5);
+tl.from('#s5 img', { scale: 0.6, opacity: 0, duration: 0.9, ease: 'back.out(1.6)' }, T.s5 + 0.05)
+  .from('#s5 h1', { y: 30, opacity: 0, duration: 0.7, ease: 'power3.out' }, T.s5 + 0.3)
+  .from(['#s5 .url', '#s5 .pills', '#s5 .cmd'], { y: 20, opacity: 0, duration: 0.6, stagger: 0.15, ease: 'power3.out' }, T.s5 + 0.6)
+  .set({}, {}, T.end);
+
+window.duration = T.end;
+window.T = T; window.E = E;
+
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const cli = document.getElementById('cli');
+const gui = document.getElementById('gui');
+
+// seek renders the exact frame for time t, including embedded media.
+window.seek = async (t) => {
+  tl.seek(t, false);
+  const d = t - T.s3;
+  if (d >= E.clickTerm && d <= E.tidy + 1) {
+    const vt = clamp(CLI.from + (d - E.cliStart) * CLI.speed, CLI.from, cli.duration - 0.05);
+    if (Math.abs(cli.currentTime - vt) > 1e-3) {
+      cli.currentTime = vt;
+      await new Promise(r => cli.addEventListener('seeked', r, { once: true }));
+    }
+  }
+  if (media.gui.count && d >= E.guiStart && d <= E.tidy + 1) {
+    const idx = clamp(Math.floor((d - E.guiStart) * media.gui.fps), 0, media.gui.count - 1) + 1;
+    const src = `media/gui-light/frame_${String(idx).padStart(5, '0')}.png`;
+    if (gui.getAttribute('src') !== src) { gui.src = src; await gui.decode(); }
+  }
+  await new Promise(requestAnimationFrame);
+};
+
+window.ready = (async () => {
+  await document.fonts.ready;
+  if (cli.readyState < 1) await new Promise(r => cli.addEventListener('loadedmetadata', r, { once: true }));
+  await Promise.all([...document.images].filter(i => i.src).map(i => i.decode().catch(() => {})));
+})();
+</script>
+</body>
+</html>

@@ -32,7 +32,17 @@ Slack for work, Slack for you, side by side, never sharing a login.
 
 Most Mac apps only let you be one person at a time. Signing in to a second Slack workspace, a second Discord account or a separate browser profile means logging out, juggling windows or giving up.
 
-Twin makes a full copy of the app that **believes it lives in its own home folder**. Each twin keeps its own logins, settings, caches and window state, gets its own Dock icon, and runs alongside the original.
+Twin makes a full copy of the app that **believes it's on its own machine**. Each twin keeps its own logins, settings, caches and window state, gets its own Dock icon, and runs alongside the original, sharing nothing with it:
+
+| Kept separate per twin | |
+|---|---|
+| 📁 **Files & settings** | Home folder, `~/Library`, preferences |
+| 🔐 **Secrets** | Keychain items (tokens, passwords, encryption keys) |
+| 🔌 **Running state** | `/tmp` sockets and lock files, temp and cache folders |
+| 🖥️ **Hardware fingerprint** | MAC addresses, hardware UUID and serial number |
+
+> [!IMPORTANT]
+> **Twins also change the hardware fingerprint.** Each twin sees its own stable MAC addresses, hardware UUID and serial number, so apps that identify a machine by its hardware treat every twin as a separate device. That's what gives a RustDesk twin its own ID. It also means apps licensed per device may count a twin as another device.
 
 <div align="center">
 <a href="assets/twin-promo.mp4"><img src="assets/twin-preview.gif" width="860" alt="Twin in action: drop Discord in, clone it as Work, make a Personal twin from the terminal, and run both side by side"></a>
@@ -88,9 +98,16 @@ curl -fsSL https://raw.githubusercontent.com/mukhayyar/twin/main/install.sh | ba
 go install github.com/mukhayyar/twin/cmd/twin@latest
 ```
 
-**By hand.** Download `twin_x.y.z_darwin_universal.tar.gz` from the [releases](https://github.com/mukhayyar/twin/releases/latest), extract it and put `twin` on your `PATH`. It's a universal binary for Apple silicon and Intel. Verify it with `checksums.txt`.
+**By hand.** Download the archive for your system from the [releases](https://github.com/mukhayyar/twin/releases/latest), extract it and put `twin` on your `PATH`. Verify it with `checksums.txt`.
 
 </details>
+
+### Linux and Windows
+
+The CLI runs there too. The installer above works on Linux (x86-64 and ARM64); on Windows, download `twin_x.y.z_windows_*.zip`.
+
+- **Linux:** a twin is a new app-menu entry whose files and settings live in their own profile (HOME and XDG folders). Flatpak apps work; Snap apps can't be twinned. The desktop keyring and hardware fingerprint are shared.
+- **Windows (experimental):** a twin is a Start Menu shortcut that runs the app with its own user folders. Apps that only allow one running copy won't open twice.
 
 ## Usage
 
@@ -171,6 +188,7 @@ Most apps that keep their data under `~/Library`: Electron apps (Slack, Discord,
 - **Mac App Store apps** usually refuse to launch after re-signing (receipt checks).
 - Apps that rely on **iCloud or Keychain sharing entitlements** lose them, because ad-hoc signing can't keep a developer's entitlements.
 - Apps that enforce a **single instance** through a server-side session may still log one twin out.
+- Apps that install **system-wide services** (privileged helpers, launch daemons) share those services between twins.
 
 </details>
 
@@ -219,9 +237,11 @@ scripts/build-app.sh && open dist/Twin.app   # the app (Xcode or Command Line To
 
 - [x] macOS app and CLI
 - [x] Auto icon recolor and label badges
+- [x] Full isolation on macOS, including keychain and hardware fingerprint
+- [x] Linux CLI: `.desktop` twins with XDG profiles
+- [x] Windows CLI (experimental): shortcut twins with their own user folders
 - [ ] Homebrew tap
-- [ ] Linux: `.desktop` twins with XDG directories
-- [ ] Windows: shortcut twins with per-profile data directories
+- [ ] Full isolation on Linux (keyring, `/tmp`)
 
 ## Credits
 

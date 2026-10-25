@@ -22,6 +22,8 @@
 //                         derive an ID from the hardware (RustDesk does, from
 //                         the MAC) see each twin as its own machine. Stable:
 //                         the same twin always gets the same values.
+//                         TWIN_HARDWARE=shared turns this part off, for apps
+//                         licensed per device.
 //
 // Environment: TWIN_ROOT, TWIN_CACHE, TWIN_NAME, TWIN_LABEL, TWIN_ID (the
 // twin's bundle ID), TWIN_ORIG_ID, and optional TWIN_REMAP extra prefix pairs
@@ -54,7 +56,7 @@
     __attribute__((used)) static const struct { const void *r, *o; } interpose_##original \
         __attribute__((section("__DATA,__interpose"))) = {(const void *)&replacement, (const void *)&original}
 
-static int active;
+static int active, hwActive; // hwActive: give the twin its own hardware IDs
 static char root[512], tempDir[600], cacheDir[1024];
 static CFStringRef twinID, origID, label, keySuffix;
 
@@ -486,7 +488,7 @@ static void mixMAC(uint8_t *mac) {
 
 static int t_getifaddrs(struct ifaddrs **list) {
     int r = getifaddrs(list);
-    if (r != 0 || !active) return r;
+    if (r != 0 || !hwActive) return r;
     for (struct ifaddrs *i = *list; i; i = i->ifa_next) {
         if (!i->ifa_addr || i->ifa_addr->sa_family != AF_LINK) continue;
         struct sockaddr_dl *dl = (struct sockaddr_dl *)i->ifa_addr;
@@ -498,7 +500,7 @@ INTERPOSE(t_getifaddrs, getifaddrs);
 
 static int t_gethostuuid(uuid_t id, const struct timespec *wait) {
     int r = gethostuuid(id, wait);
-    if (r == 0 && active) mixBytes(id, sizeof(uuid_t));
+    if (r == 0 && hwActive) mixBytes(id, sizeof(uuid_t));
     return r;
 }
 INTERPOSE(t_gethostuuid, gethostuuid);
@@ -524,7 +526,7 @@ static CFStringRef mixSerial(CFStringRef s) {
 }
 
 static CFTypeRef mixProperty(CFStringRef key, CFTypeRef v) {
-    if (!active || !v || !key) return v;
+    if (!hwActive || !v || !key) return v;
     CFTypeRef out = v;
     if (CFGetTypeID(v) == CFStringGetTypeID() && CFEqual(key, CFSTR("IOPlatformUUID"))) out = mixUUIDString(v);
     else if (CFGetTypeID(v) == CFStringGetTypeID() && CFEqual(key, CFSTR("IOPlatformSerialNumber"))) out = mixSerial(v);
@@ -551,7 +553,7 @@ INTERPOSE(t_IORegistryEntrySearchCFProperty, IORegistryEntrySearchCFProperty);
 
 static int t_sysctlbyname(const char *name, void *old, size_t *oldlen, void *new, size_t newlen) {
     int r = sysctlbyname(name, old, oldlen, new, newlen);
-    if (r == 0 && active && old && oldlen && name && strcmp(name, "kern.uuid") == 0) {
+    if (r == 0 && hwActive && old && oldlen && name && strcmp(name, "kern.uuid") == 0) {
         uuid_t u;
         if (uuid_parse(old, u) == 0) {
             mixBytes(u, sizeof u);
@@ -624,6 +626,8 @@ __attribute__((constructor)) static void init(void) {
     keySuffix = CFStringCreateWithFormat(NULL, NULL, CFSTR(" [twin %s]"), name);
     CC_SHA256(name, (CC_LONG)strlen(name), salt);
     active = 1;
+    const char *hw = getenv("TWIN_HARDWARE");
+    hwActive = !(hw && strcmp(hw, "shared") == 0);
 
     Class defaults = objc_getClass("NSUserDefaults");
     swizzle(defaults, @selector(initWithSuiteName:), (IMP)twinInitSuite, &origInitSuite);

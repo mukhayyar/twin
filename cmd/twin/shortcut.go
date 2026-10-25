@@ -129,8 +129,8 @@ func encodeICO(w io.Writer, imgs []image.Image) error {
 	for i, img := range imgs {
 		e := head[6+16*i:]
 		e[0], e[1] = byte(img.Bounds().Dx()%256), byte(img.Bounds().Dy()%256) // 256 is stored as 0
-		binary.LittleEndian.PutUint16(e[4:], 1)                                // color planes
-		binary.LittleEndian.PutUint16(e[6:], 32)                               // bits per pixel
+		binary.LittleEndian.PutUint16(e[4:], 1)                               // color planes
+		binary.LittleEndian.PutUint16(e[6:], 32)                              // bits per pixel
 		binary.LittleEndian.PutUint32(e[8:], uint32(len(data[i])))
 		binary.LittleEndian.PutUint32(e[12:], uint32(offset))
 		offset += len(data[i])

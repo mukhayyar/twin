@@ -90,6 +90,7 @@ enum CloneEngine {
         # libtwinisolate covers /tmp, temp and cache folders, preferences and keychain items.
         export TWIN_NAME="\(name)" TWIN_LABEL="\(plan.label)" TWIN_ID="\(bashEscape(plan.bundleID))" TWIN_ORIG_ID="\(bashEscape(plan.source.bundleID))"
         export TWIN_ROOT="/private/tmp/twin.$UID.\(String(format: "%08x", IconPainter.fnv1a(plan.cloneName)))" TWIN_CACHE="$PROFILE_DIR/Library/Caches/TwinDarwin"
+        export TWIN_HARDWARE="\(plan.ownHardware ? "separate" : "shared")" # "shared" lets apps see this Mac's real hardware IDs
         export TMPDIR="$TWIN_ROOT/T/"
         export HOME="$PROFILE_DIR"
         export CFFIXED_USER_HOME="$PROFILE_DIR"

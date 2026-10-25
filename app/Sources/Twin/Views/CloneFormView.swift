@@ -7,7 +7,9 @@ struct CloneFormView: View {
 
     @FocusState private var labelFocused: Bool
 
-    private var plan: ClonePlan { ClonePlan(source: app, rawLabel: store.label, icon: store.iconOptions) }
+    private var plan: ClonePlan {
+        ClonePlan(source: app, rawLabel: store.label, icon: store.iconOptions, ownHardware: store.ownHardware)
+    }
     private var labelIsValid: Bool { CloneLabel.isValid(store.label) }
     private var duplicate: Bool { store.isDuplicate(plan) }
     private var twins: [AppInfo] { store.twins(of: app) }
@@ -128,6 +130,22 @@ struct CloneFormView: View {
             feedback
                 .font(.caption)
                 .animation(.snappy(duration: 0.2), value: duplicate)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 3) {
+                Toggle("Own hardware ID", isOn: $store.ownHardware)
+                    .toggleStyle(.checkbox)
+                    .font(.callout)
+                Text(store.ownHardware
+                     ? "Apps see this twin as a different Mac. Turn off for apps licensed per device."
+                     : "Apps see this Mac's real hardware ID, so a device-bound license keeps working.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 20)
+            }
+            .help("Gives the twin its own MAC addresses, hardware UUID and serial number")
         }
     }
 

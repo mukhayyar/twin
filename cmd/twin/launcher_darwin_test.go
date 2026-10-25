@@ -6,7 +6,7 @@ import (
 )
 
 func TestLauncher(t *testing.T) {
-	p := Plan{Name: `Odd "$name"`, Label: "Work", ID: "com.example.app.Work", Src: App{ID: "com.example.app", Exec: "Odd"}}
+	p := Plan{Name: `Odd "$name"`, Label: "Work", ID: "com.example.app.Work", Src: App{ID: "com.example.app", Exec: "Odd"}, OwnHardware: true}
 	s := launcher(p)
 	for _, want := range []string{
 		`PROFILE_DIR="$HOME/.app_profiles/Odd \"\$name\""`,
@@ -19,6 +19,13 @@ func TestLauncher(t *testing.T) {
 		if !strings.Contains(s, want) {
 			t.Errorf("launcher missing %q:\n%s", want, s)
 		}
+	}
+	if !strings.Contains(s, `export TWIN_HARDWARE="separate"`) {
+		t.Error("own hardware IDs should be on")
+	}
+	p.OwnHardware = false
+	if !strings.Contains(launcher(p), `export TWIN_HARDWARE="shared"`) {
+		t.Error("--share-hardware should write shared")
 	}
 	// The keychain link must be made while $HOME is still the real home.
 	if strings.Index(s, "ln -s") > strings.Index(s, `export HOME=`) {

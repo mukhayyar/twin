@@ -55,7 +55,7 @@ type finishMsg struct{}
 type model struct {
 	state    state
 	dryRun   bool
-	style    IconStyle
+	style    Options
 	width    int
 	quitting bool
 
@@ -76,7 +76,7 @@ type model struct {
 	failed  int
 }
 
-func newModel(apps []App, isDark, dryRun bool, style IconStyle) model {
+func newModel(apps []App, isDark, dryRun bool, style Options) model {
 	items := make([]list.Item, len(apps))
 	for i, a := range apps {
 		items[i] = a
@@ -236,6 +236,11 @@ func (m model) updateLabel(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.preset = (m.preset + 1) % len(presets)
 			m.input.SetValue(presets[m.preset])
 			m.input.CursorEnd()
+			return m, nil
+		case "ctrl+o":
+			if hardwareOption {
+				m.style.OwnHardware = !m.style.OwnHardware
+			}
 			return m, nil
 		case "shift+tab":
 			m.preset = (max(m.preset, 0) + len(presets) - 1) % len(presets)
@@ -426,7 +431,7 @@ func (m model) labelView() string {
 		}
 	}
 
-	card := st.Card.Render(st.CardTitle.Render("PREVIEW") + "\n" + rows(append(previewRows(p), "Icon", iconSummary(p))...))
+	card := st.Card.Render(st.CardTitle.Render("PREVIEW") + "\n" + rows(append(append(previewRows(p), "Icon", iconSummary(p)), hardwareRow(p, true)...)...))
 
 	out := []string{
 		hero, "",
@@ -450,7 +455,11 @@ func (m model) labelView() string {
 	if p.Exists {
 		out = append(out, st.Warn.Render("▲ "+p.Name+".app already exists and will be replaced"))
 	}
-	out = append(out, "", help("enter", "create clone", "tab", "quick pick", "esc", "back", "ctrl+c", "quit"))
+	keys := []string{"enter", "create clone", "tab", "quick pick"}
+	if hardwareOption {
+		keys = append(keys, "ctrl+o", "hardware ID")
+	}
+	out = append(out, "", help(append(keys, "esc", "back", "ctrl+c", "quit")...))
 	return strings.Join(out, "\n")
 }
 
@@ -508,10 +517,10 @@ func (m model) doneView() string {
 	for i, s := range steps {
 		kept = kept || (s.Title == paintStep && m.notes[i] != "")
 	}
-	body := title + "\n\n" + rows(append(previewRows(m.plan),
-		"Icon", iconRow(m.plan, kept),
-		"Time", fmt.Sprintf("%.1fs", m.elapsed.Seconds()),
-	)...)
+	pairs := append(previewRows(m.plan), "Icon", iconRow(m.plan, kept))
+	pairs = append(pairs, hardwareRow(m.plan, false)...)
+	pairs = append(pairs, "Time", fmt.Sprintf("%.1fs", m.elapsed.Seconds()))
+	body := title + "\n\n" + rows(pairs...)
 	for i, n := range m.notes {
 		if n != "" {
 			body += "\n\n" + st.Warn.Render("▲ "+steps[i].Title+": "+clip(n, 60))
@@ -550,6 +559,22 @@ func iconSummary(p Plan) string {
 		return dot + st.Muted.Render(" recolored")
 	}
 	return st.Muted.Render("original")
+}
+
+// hardwareRow describes the hardware-ID choice as a key/value pair, or
+// nothing where the option doesn't exist. editable adds a checkbox look.
+func hardwareRow(p Plan, editable bool) []string {
+	if !hardwareOption {
+		return nil
+	}
+	own, shared := "own hardware ID", "this Mac's hardware ID"
+	if editable {
+		own, shared = "[x] own hardware ID", "[ ] own hardware ID"
+	}
+	if p.OwnHardware {
+		return []string{"Hardware", st.Text.Render(own)}
+	}
+	return []string{"Hardware", st.Muted.Render(shared)}
 }
 
 // iconRow summarizes the finished icon, admitting when painting fell back.

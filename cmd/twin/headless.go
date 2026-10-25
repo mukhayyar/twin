@@ -40,6 +40,6 @@ func runHeadless(p Plan, dryRun bool) error {
 			lipgloss.Println(st.Success.Render("✓ ") + st.Text.Render(s.Title) + took)
 		}
 	}
-	lipgloss.Println("\n" + rows(append(previewRows(p), "Icon", iconRow(p, iconKept))...))
+	lipgloss.Println("\n" + rows(append(append(previewRows(p), "Icon", iconRow(p, iconKept)), hardwareRow(p, false)...)...))
 	return nil
 }

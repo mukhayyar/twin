@@ -10,10 +10,12 @@ import (
 )
 
 const (
-	windowsPaths = false
-	dropHint     = "Pick from the list, or drag an app from Finder into this window."
-	dirsHelp     = "(default: /Applications:~/Applications)"
-	pathExample  = "~/Downloads/Foo.app"
+	// hardwareOption: whether twins can get their own hardware IDs here.
+	hardwareOption = true
+	windowsPaths   = false
+	dropHint       = "Pick from the list, or drag an app from Finder into this window."
+	dirsHelp       = "(default: /Applications:~/Applications)"
+	pathExample    = "~/Downloads/Foo.app"
 )
 
 // searchRoots returns the folders scanned for apps. TWIN_DIRS

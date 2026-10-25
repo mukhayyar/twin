@@ -9,10 +9,12 @@ import (
 )
 
 const (
-	windowsPaths = true
-	dropHint     = "Pick from the list, or drag a shortcut or .exe into this window."
-	dirsHelp     = "(default: the Start Menu folders)"
-	pathExample  = `C:\Tools\Foo.lnk`
+	// hardwareOption: whether twins can get their own hardware IDs here.
+	hardwareOption = false
+	windowsPaths   = true
+	dropHint       = "Pick from the list, or drag a shortcut or .exe into this window."
+	dirsHelp       = "(default: the Start Menu folders)"
+	pathExample    = `C:\Tools\Foo.lnk`
 )
 
 func startMenuDirs() []string {

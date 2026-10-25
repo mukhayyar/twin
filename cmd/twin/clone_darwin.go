@@ -36,12 +36,20 @@ mkdir -p "$PROFILE_DIR/Library"
 # libtwinisolate covers /tmp, temp and cache folders, preferences and keychain items.
 export TWIN_NAME="` + bashEscape(p.Name) + `" TWIN_LABEL="` + p.Label + `" TWIN_ID="` + bashEscape(p.ID) + `" TWIN_ORIG_ID="` + bashEscape(p.Src.ID) + `"
 export TWIN_ROOT="/private/tmp/twin.$UID.` + twinHash(p.Name) + `" TWIN_CACHE="$PROFILE_DIR/Library/Caches/TwinDarwin"
+export TWIN_HARDWARE="` + hardwareMode(p) + `" # "shared" lets apps see this Mac's real hardware IDs
 export TMPDIR="$TWIN_ROOT/T/"
 export HOME="$PROFILE_DIR"
 export CFFIXED_USER_HOME="$PROFILE_DIR"
 export DYLD_INSERT_LIBRARIES="$(dirname "$0")/libtwinisolate.dylib"
 exec "$(dirname "$0")/` + bashEscape(p.Src.Exec) + `.real" "$@"
 `
+}
+
+func hardwareMode(p Plan) string {
+	if p.OwnHardware {
+		return "separate"
+	}
+	return "shared"
 }
 
 // bashEscape makes s safe inside a double-quoted bash string.

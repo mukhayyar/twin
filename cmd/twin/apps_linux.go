@@ -10,10 +10,12 @@ import (
 )
 
 const (
-	windowsPaths = false
-	dropHint     = "Pick from the list, or drag a .desktop file into this window."
-	dirsHelp     = "(default: the XDG applications folders)"
-	pathExample  = "~/Desktop/foo.desktop"
+	// hardwareOption: whether twins can get their own hardware IDs here.
+	hardwareOption = false
+	windowsPaths   = false
+	dropHint       = "Pick from the list, or drag a .desktop file into this window."
+	dirsHelp       = "(default: the XDG applications folders)"
+	pathExample    = "~/Desktop/foo.desktop"
 )
 
 func dataHome() string {

@@ -21,10 +21,12 @@ type Plan struct {
 	Tint    bool
 	Badge   bool
 
+	OwnHardware bool // the twin gets its own hardware IDs (macOS)
+
 	ExistingIsClone bool // what's at Dest was made by twin
 }
 
-func newPlan(src App, rawLabel string, style IconStyle) Plan {
+func newPlan(src App, rawLabel string, style Options) Plan {
 	label := sanitizeLabel(rawLabel)
 	name := src.Name + "-" + label
 	color := style.Color
@@ -39,6 +41,8 @@ func newPlan(src App, rawLabel string, style IconStyle) Plan {
 		Color:   color,
 		Tint:    style.Tint,
 		Badge:   style.Badge,
+
+		OwnHardware: style.OwnHardware,
 	}
 	p.Dest, p.ID = twinTarget(src, name, label)
 	_, err := os.Stat(p.Dest)

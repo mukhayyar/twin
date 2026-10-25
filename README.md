@@ -42,7 +42,7 @@ Twin makes a full copy of the app that **believes it's on its own machine**. Eac
 | 🖥️ **Hardware fingerprint** | MAC addresses, hardware UUID and serial number |
 
 > [!IMPORTANT]
-> **Twins also change the hardware fingerprint.** Each twin sees its own stable MAC addresses, hardware UUID and serial number, so apps that identify a machine by its hardware treat every twin as a separate device. That's what gives a RustDesk twin its own ID. It also means apps licensed per device may count a twin as another device.
+> **Twins also change the hardware fingerprint, unless you turn it off.** By default each twin sees its own stable MAC addresses, hardware UUID and serial number, so apps that identify a machine by its hardware treat it as a separate device. That's what gives a RustDesk twin its own ID. For apps licensed per device, untick **Own hardware ID** in the app (or pass `--share-hardware` to the CLI) and the twin sees this Mac's real hardware instead. Everything else stays separate either way.
 
 <div align="center">
 <a href="assets/twin-promo.mp4"><img src="assets/twin-preview.gif" width="860" alt="Twin in action: drop Discord in, clone it as Work, make a Personal twin from the terminal, and run both side by side"></a>
@@ -118,6 +118,7 @@ The CLI runs there too. The installer above works on Linux (x86-64 and ARM64); o
 | **Choose an app** | Drop it on the window or the Dock icon, pick it from the sidebar, or press <kbd>⌘</kbd> <kbd>O</kbd> |
 | **Name the twin** | Type a label or click a quick pick: Work, Personal, Hobby, School |
 | **Style the icon** | Auto color (or pick your own), badge on/off, tint on/off, previewed live |
+| **Hardware ID** | **Own hardware ID** is on by default; untick it for apps licensed per device |
 | **Create** | <kbd>⌘</kbd> <kbd>↩</kbd>. Twin shows each step, then offers to open it |
 | **Manage** | Right-click a twin in the sidebar to Open, Show in Finder, Copy Path or Move to Trash (<kbd>⌘</kbd> <kbd>Z</kbd> undoes it) |
 
@@ -149,6 +150,7 @@ twin -n                     try the whole flow without touching the disk
 | `-n`, `--dry-run` | Walk through everything without changing the disk |
 | `-c`, `--color` | `auto` (default), `none`, a name (`blue` `green` `orange` `purple` `pink` `teal` `indigo` `yellow` `red` `mint` `brown` `cyan`) or `#RRGGBB` |
 | `--no-badge` | Keep the label off the icon |
+| `--share-hardware` | Let the twin see this Mac's real hardware IDs instead of its own (macOS) |
 | `-v`, `--version` | Print the version |
 
 | Key | |
@@ -157,6 +159,7 @@ twin -n                     try the whole flow without touching the disk
 | <kbd>/</kbd> | Filter apps |
 | <kbd>enter</kbd> | Choose / create |
 | <kbd>tab</kbd> | Cycle quick-pick labels |
+| <kbd>ctrl</kbd> <kbd>o</kbd> | Toggle own hardware ID |
 | <kbd>esc</kbd> | Back |
 | <kbd>o</kbd> | Open the new twin |
 | <kbd>q</kbd> | Quit |

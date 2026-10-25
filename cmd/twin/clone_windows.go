@@ -44,7 +44,7 @@ func cleanup(p Plan) {
 func openTwin(p Plan) error { return exec.Command("cmd", "/c", "start", "", p.Dest).Start() }
 
 func makeWinProfile(p Plan) (string, error) {
-	for _, d := range []string{`AppData\Roaming`, `AppData\Local`} {
+	for _, d := range []string{`AppData\Roaming`, `AppData\Local\Temp`} {
 		if err := os.MkdirAll(filepath.Join(p.Profile, d), 0o755); err != nil {
 			return "", err
 		}

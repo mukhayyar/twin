@@ -81,7 +81,15 @@ Twin makes a full copy of the app that **believes it's on its own machine**. Eac
    xattr -dr com.apple.quarantine /Applications/Twin.app
    ```
 
+   Or with Homebrew: `brew install --cask mukhayyar/tap/twin`
+
 ### The CLI
+
+```bash
+brew install mukhayyar/tap/twin
+```
+
+or
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mukhayyar/twin/main/install.sh | bash
@@ -104,9 +112,9 @@ go install github.com/mukhayyar/twin/cmd/twin@latest
 
 ### Linux and Windows
 
-The CLI runs there too. The installer above works on Linux (x86-64 and ARM64); on Windows, download `twin_x.y.z_windows_*.zip`.
+The CLI runs there too. Homebrew and the installer above work on Linux (x86-64 and ARM64); on Windows, download `twin_x.y.z_windows_*.zip`.
 
-- **Linux:** a twin is a new app-menu entry whose files and settings live in their own profile (HOME and XDG folders). Flatpak apps work; Snap apps can't be twinned. The desktop keyring and hardware fingerprint are shared.
+- **Linux:** a twin is a new app-menu entry with its own profile: files and settings (HOME and XDG folders), `/tmp`, app sockets and hardware fingerprint are all kept apart. Chromium and Electron apps keep their saved passwords inside the twin's profile instead of the shared desktop keyring; other apps' keyring entries stay shared. Flatpak apps work; Snap apps can't be twinned.
 - **Windows (experimental):** a twin is a Start Menu shortcut that runs the app with its own user folders. Apps that only allow one running copy won't open twice.
 
 ## Usage
@@ -251,9 +259,10 @@ scripts/build-app.sh && open dist/Twin.app   # the app (Xcode or Command Line To
 - [x] Auto icon recolor and label badges
 - [x] Full isolation on macOS, including keychain and hardware fingerprint
 - [x] Linux CLI: `.desktop` twins with XDG profiles
-- [x] Windows CLI (experimental): shortcut twins with their own user folders
-- [ ] Homebrew tap
-- [ ] Full isolation on Linux (keyring, `/tmp`)
+- [x] Windows CLI (experimental): shortcut twins with their own user folders and temp
+- [x] Homebrew tap
+- [x] Full isolation on Linux: `/tmp`, app sockets, hardware fingerprint, Chromium/Electron passwords
+- [ ] Twin.app icon in the new macOS 26 format
 
 ## Credits
 

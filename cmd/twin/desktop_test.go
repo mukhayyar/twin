@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"image"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -75,16 +77,34 @@ func TestFlatpakExec(t *testing.T) {
 }
 
 func TestLauncherScript(t *testing.T) {
-	s := launcherScript("Slack", "/home/a/.app_profiles/Slack-Work", []string{"/usr/bin/slack", "--it's"})
+	iso := isolation{Lib: "/home/a/.local/share/twin/libtwinisolate.so", Name: "Slack-Work", Hash: "1a2b3c4d", Hardware: "separate"}
+	s := launcherScript("Slack", "/home/a/.app_profiles/Slack-Work", []string{"/usr/bin/slack", "--it's"}, iso)
 	for _, want := range []string{
 		"P='/home/a/.app_profiles/Slack-Work'",
 		`export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"`,
 		`export HOME="$P" XDG_CONFIG_HOME="$P/.config"`,
+		`export TWIN_NAME='Slack-Work' TWIN_ROOT="/tmp/twin.$(id -u).1a2b3c4d" TWIN_HARDWARE=separate`,
+		`export LD_PRELOAD='/home/a/.local/share/twin/libtwinisolate.so'"${LD_PRELOAD:+:$LD_PRELOAD}"`,
 		`exec '/usr/bin/slack' '--it'\''s' "$@"`,
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("launcher missing %q:\n%s", want, s)
 		}
+	}
+	if strings.Contains(launcherScript("Slack", "/p", []string{"slack"}, isolation{}), "LD_PRELOAD") {
+		t.Error("no library, no preload")
+	}
+}
+
+func TestIsChromiumDir(t *testing.T) {
+	dir := t.TempDir()
+	if isChromiumDir(dir) {
+		t.Error("empty folder isn't Chromium")
+	}
+	os.MkdirAll(filepath.Join(dir, "resources"), 0o755)
+	os.WriteFile(filepath.Join(dir, "resources", "app.asar"), nil, 0o644)
+	if !isChromiumDir(dir) {
+		t.Error("an Electron app (resources/app.asar) wasn't detected")
 	}
 }
 
@@ -112,6 +132,7 @@ func TestWinLauncherArgs(t *testing.T) {
 	got := winLauncherArgs(`C:\Users\a\.app_profiles\Discord-Work`, `C:\Users\a\AppData\Local\Discord\Update.exe`, `--processStart Discord.exe`)
 	want := `/c set "USERPROFILE=C:\Users\a\.app_profiles\Discord-Work" & set "HOME=C:\Users\a\.app_profiles\Discord-Work" & ` +
 		`set "APPDATA=C:\Users\a\.app_profiles\Discord-Work\AppData\Roaming" & set "LOCALAPPDATA=C:\Users\a\.app_profiles\Discord-Work\AppData\Local" & ` +
+		`set "TEMP=C:\Users\a\.app_profiles\Discord-Work\AppData\Local\Temp" & set "TMP=C:\Users\a\.app_profiles\Discord-Work\AppData\Local\Temp" & ` +
 		`start "" "C:\Users\a\AppData\Local\Discord\Update.exe" --processStart Discord.exe`
 	if got != want {
 		t.Errorf("got  %s\nwant %s", got, want)

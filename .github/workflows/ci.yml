@@ -23,3 +23,29 @@ jobs:
         run: scripts/build-cli.sh
       - name: Build the app
         run: scripts/build-app.sh
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Test
+        run: go test ./...
+      - name: Smoke test a real twin
+        shell: pwsh
+        run: ./.github/windows-smoke.ps1
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: The isolation library builds from source
+        run: gcc -shared -fPIC -O2 -Wall -Werror -o /tmp/libtwinisolate.so cmd/twin/isolate/isolate_linux.c -ldl
+      - name: Test
+        run: go test ./...
+

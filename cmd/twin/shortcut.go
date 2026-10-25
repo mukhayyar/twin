@@ -28,6 +28,8 @@ func winLauncherArgs(profile, target, args string) string {
 		set("HOME", profile),
 		set("APPDATA", profile+`\AppData\Roaming`),
 		set("LOCALAPPDATA", profile+`\AppData\Local`),
+		set("TEMP", profile+`\AppData\Local\Temp`),
+		set("TMP", profile+`\AppData\Local\Temp`),
 		fmt.Sprintf(`start "" "%s" %s`, target, args),
 	}, " & "))
 }

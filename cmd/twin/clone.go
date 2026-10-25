@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"hash/fnv"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -49,6 +50,14 @@ func newPlan(src App, rawLabel string, style Options) Plan {
 	p.Exists = err == nil
 	p.ExistingIsClone = p.Exists && isTwin(p.Dest)
 	return p
+}
+
+// twinHash keeps per-twin paths short: Unix socket paths max out at 104
+// bytes on macOS and 108 on Linux.
+func twinHash(name string) string {
+	h := fnv.New32a()
+	h.Write([]byte(name))
+	return fmt.Sprintf("%08x", h.Sum32())
 }
 
 func profilesRoot() string {

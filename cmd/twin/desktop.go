@@ -6,6 +6,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -174,9 +175,20 @@ func flatpakExec(args []string, profile string) []string {
 	return append(out, args[2:]...)
 }
 
+// isolation is what a Linux twin's launcher sets up beyond HOME and XDG:
+// libtwinisolate (empty Lib: none) and its settings.
+type isolation struct {
+	Lib      string // path to libtwinisolate.so
+	Name     string // twin name, salts the hardware IDs
+	Hash     string // short per-twin ID for TWIN_ROOT
+	Hardware string // "separate" or "shared"
+}
+
 // launcherScript runs cmd with HOME and the XDG directories pointed at the
-// profile. XAUTHORITY is pinned first: X11 looks for ~/.Xauthority otherwise.
-func launcherScript(appName, profile string, cmd []string) string {
+// profile, and libtwinisolate preloaded for /tmp, runtime sockets and
+// hardware IDs. XAUTHORITY is pinned first: X11 looks for ~/.Xauthority
+// otherwise.
+func launcherScript(appName, profile string, cmd []string, iso isolation) string {
 	quoted := make([]string, len(cmd))
 	for i, a := range cmd {
 		quoted[i] = shellQuote(a)
@@ -186,14 +198,36 @@ func launcherScript(appName, profile string, cmd []string) string {
 		env = append(env, fmt.Sprintf(`%s="$P/%s"`, d[0], d[1]))
 		dirs = append(dirs, `"$`+d[0]+`"`)
 	}
+	preload := ""
+	if iso.Lib != "" {
+		preload = fmt.Sprintf(`export TWIN_NAME=%s TWIN_ROOT="/tmp/twin.$(id -u).%s" TWIN_HARDWARE=%s
+export LD_PRELOAD=%s"${LD_PRELOAD:+:$LD_PRELOAD}"
+`, shellQuote(iso.Name), iso.Hash, iso.Hardware, shellQuote(iso.Lib))
+	}
 	return fmt.Sprintf(`#!/bin/sh
 # Made by twin: runs %s with its own profile. Delete it along with the twin.
 P=%s
 export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"
 export HOME="$P" %s
 mkdir -p %s
-exec %s "$@"
-`, appName, shellQuote(profile), strings.Join(env, " "), strings.Join(dirs, " "), strings.Join(quoted, " "))
+%sexec %s "$@"
+`, appName, shellQuote(profile), strings.Join(env, " "), strings.Join(dirs, " "), preload, strings.Join(quoted, " "))
+}
+
+// chromiumMarkers are files only Chromium-based apps (Chrome, Electron apps
+// like Slack, Discord, VS Code) ship next to their executable.
+var chromiumMarkers = []string{"chrome-sandbox", "chrome_crashpad_handler", "resources/app.asar", "resources/electron.asar"}
+
+// isChromiumDir reports whether dir holds a Chromium-based app. Those keep
+// their encryption key in the desktop keyring, shared by every copy, unless
+// told --password-store=basic, which keeps it in the profile instead.
+func isChromiumDir(dir string) bool {
+	for _, m := range chromiumMarkers {
+		if _, err := os.Stat(filepath.Join(dir, m)); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }

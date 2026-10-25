@@ -27,6 +27,10 @@ var steps = []step{
 
 func launcherPath(id string) string { return filepath.Join(dataHome(), "twin", id+".sh") }
 
+// isolateLibPath is where the embedded libtwinisolate.so is written; every
+// twin preloads the same copy.
+func isolateLibPath() string { return filepath.Join(dataHome(), "twin", "libtwinisolate.so") }
+
 func iconPath(id string) string {
 	return filepath.Join(dataHome(), "icons", "hicolor", "512x512", "apps", id+".png")
 }
@@ -187,14 +191,36 @@ func writeLauncher(p Plan) (string, error) {
 
 	var command []string
 	if isFlatpak(args) {
+		// Flatpak sandboxes ignore LD_PRELOAD and give each app its own /tmp.
 		command = flatpakExec(args, p.Profile)
+		if flatpakIsChromium(args) {
+			command = append(command, "--password-store=basic")
+		}
 	} else {
 		cmd, codes := splitFieldCodes(args)
+		if exe, err := exec.LookPath(cmd[0]); err == nil {
+			if real, err := filepath.EvalSymlinks(exe); err == nil && isChromiumDir(filepath.Dir(real)) {
+				cmd = append(cmd, "--password-store=basic")
+			}
+		}
+		iso := isolation{Name: p.Name, Hash: twinHash(p.Name), Hardware: "separate"}
+		if !p.OwnHardware {
+			iso.Hardware = "shared"
+		}
+		if len(isolateSO) > 0 {
+			iso.Lib = isolateLibPath()
+			if err := os.MkdirAll(filepath.Dir(iso.Lib), 0o755); err != nil {
+				return "", err
+			}
+			if err := os.WriteFile(iso.Lib, isolateSO, 0o755); err != nil {
+				return "", err
+			}
+		}
 		script := launcherPath(p.ID)
 		if err := os.MkdirAll(filepath.Dir(script), 0o755); err != nil {
 			return "", err
 		}
-		if err := os.WriteFile(script, []byte(launcherScript(p.Src.Name, p.Profile, cmd)), 0o755); err != nil {
+		if err := os.WriteFile(script, []byte(launcherScript(p.Src.Name, p.Profile, cmd, iso)), 0o755); err != nil {
 			return "", err
 		}
 		command = append([]string{script}, codes...)
@@ -210,6 +236,19 @@ func writeLauncher(p Plan) (string, error) {
 		return "", err
 	}
 	return "", os.WriteFile(p.Dest, []byte(entry), 0o644)
+}
+
+// flatpakIsChromium reports whether a `flatpak run` app is built on the
+// Electron or Chromium base apps.
+func flatpakIsChromium(args []string) bool {
+	for _, a := range args[2:] {
+		if strings.HasPrefix(a, "-") {
+			continue
+		}
+		meta, err := output("flatpak", "info", "--show-metadata", a)
+		return err == nil && (strings.Contains(meta, "org.electronjs.Electron2.BaseApp") || strings.Contains(meta, "org.chromium.Chromium.BaseApp"))
+	}
+	return false
 }
 
 // refreshMenu nudges menus that cache entries; most watch the folder anyway.

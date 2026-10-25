@@ -11,7 +11,7 @@ import (
 
 const (
 	// hardwareOption: whether twins can get their own hardware IDs here.
-	hardwareOption = false
+	hardwareOption = true
 	windowsPaths   = false
 	dropHint       = "Pick from the list, or drag a .desktop file into this window."
 	dirsHelp       = "(default: the XDG applications folders)"

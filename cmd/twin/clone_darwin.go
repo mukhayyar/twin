@@ -3,7 +3,6 @@ package main
 import (
 	_ "embed"
 	"fmt"
-	"hash/fnv"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -53,13 +52,6 @@ func hardwareMode(p Plan) string {
 		return "separate"
 	}
 	return "shared"
-}
-
-// twinHash keeps TWIN_ROOT short: Unix socket paths max out at 104 bytes.
-func twinHash(name string) string {
-	h := fnv.New32a()
-	h.Write([]byte(name))
-	return fmt.Sprintf("%08x", h.Sum32())
 }
 
 var steps = []step{

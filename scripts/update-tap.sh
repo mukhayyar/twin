@@ -65,17 +65,17 @@ cask "twin" do
 
   url "https://github.com/$REPO/releases/download/v#{version}/Twin-#{version}.zip"
   name "Twin"
-  desc "Clone any Mac app into a twin with its own isolated profile"
+  desc "Clone any app into a twin with its own isolated profile"
   homepage "https://github.com/$REPO"
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "Twin.app"
 
   # Twin is ad-hoc signed rather than notarized; without this, Gatekeeper
   # refuses to open it on first launch.
-  postflight do
-    system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{appdir}/Twin.app"]
+  postflight_steps do
+    run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{appdir}}/Twin.app"]
   end
 
   zap trash: [

@@ -73,19 +73,38 @@ enum CloneEngine {
         try? FileManager.default.removeItem(at: plan.destination)
     }
 
-    static func wrapperScript(cloneName: String, executable: String) -> String {
-        """
+    /// The script that replaces a twin's main executable. Every twin gets the same
+    /// isolation; no app is special-cased. Byte-identical to the CLI's `launcher`.
+    static func wrapperScript(plan: ClonePlan) -> String {
+        let name = bashEscape(plan.cloneName)
+        return """
         #!/usr/bin/env bash
-        PROFILE_DIR="$HOME/.app_profiles/\(cloneName)"
-        mkdir -p "$PROFILE_DIR"
+        PROFILE_DIR="$HOME/.app_profiles/\(name)"
+        mkdir -p "$PROFILE_DIR/Library"
 
-        # Redirect HOME so local config files stay completely isolated.
-        # Cocoa ignores HOME for NSHomeDirectory()/~/Library; CFFIXED_USER_HOME is what it honors.
+        # macOS finds the login keychain under $HOME, so keep it reachable before HOME
+        # moves. Keychain items stay separate: libtwinisolate gives them twin names.
+        [ -e "$PROFILE_DIR/Library/Keychains" ] || ln -s "$HOME/Library/Keychains" "$PROFILE_DIR/Library/Keychains"
+
+        # Isolate everything else. HOME and CFFIXED_USER_HOME move files and ~/Library;
+        # libtwinisolate covers /tmp, temp and cache folders, preferences and keychain items.
+        export TWIN_NAME="\(name)" TWIN_LABEL="\(plan.label)" TWIN_ID="\(bashEscape(plan.bundleID))" TWIN_ORIG_ID="\(bashEscape(plan.source.bundleID))"
+        export TWIN_ROOT="/private/tmp/twin.$UID.\(String(format: "%08x", IconPainter.fnv1a(plan.cloneName)))" TWIN_CACHE="$PROFILE_DIR/Library/Caches/TwinDarwin"
+        export TMPDIR="$TWIN_ROOT/T/"
         export HOME="$PROFILE_DIR"
         export CFFIXED_USER_HOME="$PROFILE_DIR"
-        exec "$(dirname "$0")/\(executable).real" "$@"
+        export DYLD_INSERT_LIBRARIES="$(dirname "$0")/libtwinisolate.dylib"
+        exec "$(dirname "$0")/\(bashEscape(plan.source.executable)).real" "$@"
 
         """
+    }
+
+    /// Makes a value safe inside a double-quoted bash string.
+    static func bashEscape(_ s: String) -> String {
+        s.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "$", with: "\\$")
+            .replacingOccurrences(of: "`", with: "\\`")
     }
 
     // MARK: Steps
@@ -137,7 +156,11 @@ enum CloneEngine {
         let launcher = macOS.appendingPathComponent(plan.source.executable)
         try fm.moveItem(at: launcher, to: macOS.appendingPathComponent("\(plan.source.executable).real"))
 
-        let script = wrapperScript(cloneName: plan.cloneName, executable: plan.source.executable)
+        guard let lib = Bundle.main.url(forResource: "libtwinisolate", withExtension: "dylib") else {
+            throw CloneError("libtwinisolate.dylib is missing from Twin.app; rebuild it with scripts/build-app.sh.")
+        }
+        try fm.copyItem(at: lib, to: macOS.appendingPathComponent("libtwinisolate.dylib"))
+        let script = wrapperScript(plan: plan)
         try script.write(to: launcher, atomically: true, encoding: .utf8)
         try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: launcher.path)
     }

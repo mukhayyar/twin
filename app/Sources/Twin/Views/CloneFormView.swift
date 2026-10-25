@@ -72,23 +72,27 @@ struct CloneFormView: View {
             }
             if !twins.isEmpty {
                 Divider()
-                HStack(alignment: .center, spacing: 8) {
-                    Text("You already have")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize()
-                    FlowLayout(spacing: 6, lineSpacing: 6) {
-                        ForEach(twins.prefix(4)) { twin in
-                            Button { store.selection = .clone(twin.id) } label: {
-                                ProfileBadge(label: twin.cloneLabel ?? twin.name, fontSize: 10)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Show \(twin.name)")
-                            .accessibilityLabel(twin.name)
-                        }
+                existingTwins
+            }
+        }
+    }
+
+    /// Existing twins of the selected app, as a list: one row per twin, so long names
+    /// and many twins never overflow the card. Past four rows it scrolls.
+    private var existingTwins: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(twins.count == 1 ? "1 twin already" : "\(twins.count) twins already")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ScrollView {
+                VStack(spacing: 2) {
+                    ForEach(twins) { twin in
+                        TwinRow(twin: twin) { store.selection = .clone(twin.id) } open: { store.open(twin.url) }
                     }
                 }
             }
+            .frame(maxHeight: twins.count > 4 ? 4 * 40 : nil)
+            .fixedSize(horizontal: false, vertical: twins.count <= 4)
         }
     }
 
@@ -294,5 +298,45 @@ struct CloneFormView: View {
         .buttonStyle(PrimaryButtonStyle(isPressed: store.pressingCreate))
         .disabled(!store.canCreate)
         .accessibilityHint("Creates a copy of \(app.name) with its own profile")
+    }
+}
+
+/// One existing twin: icon, name and label (click to show it) and an Open button.
+/// Stateless on purpose: `@State` needs a macro plugin the Command Line Tools lack.
+private struct TwinRow: View {
+    let twin: AppInfo
+    let select: () -> Void
+    let open: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 10) {
+                AppIcon(url: twin.url, size: 28)
+                Text(twin.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .layoutPriority(1)
+                if let label = twin.cloneLabel {
+                    // The name already carries the label; the badge is a color cue, so keep it short.
+                    ProfileBadge(label: label.count > 14 ? label.prefix(13) + "…" : label, fontSize: 10)
+                        .fixedSize()
+                }
+                Spacer(minLength: 8)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture(perform: select)
+            .help("Show \(twin.name)")
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { select() }
+
+            Button("Open", action: open)
+                .buttonStyle(SecondaryButtonStyle(compact: true))
+                .help("Open \(twin.name)")
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 38)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.035)))
     }
 }

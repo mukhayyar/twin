@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -271,7 +269,7 @@ func (m model) updateFinished(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			if !m.dryRun {
-				_ = exec.Command("open", m.plan.Dest).Start()
+				_ = openTwin(m.plan)
 			}
 			m.quitting = true
 			return m, tea.Quit
@@ -303,7 +301,7 @@ func runStep(p Plan, i int, dryRun bool) tea.Cmd {
 		}
 		warning, err := steps[i].Run(p)
 		if err != nil {
-			os.RemoveAll(p.Dest) // don't leave a half-built clone behind
+			cleanup(p) // don't leave a half-built twin behind
 		}
 		return stepDoneMsg{index: i, warning: warning, err: err, took: time.Since(start)}
 	}
@@ -397,7 +395,7 @@ func (m model) header() string {
 	}
 	line += "\n\n" + strings.Join(parts, st.Faint.Render("  ──  "))
 	if m.state == statePick {
-		line += "\n\n" + st.Muted.Render("Pick from the list, or drag an app from Finder into this window.")
+		line += "\n\n" + st.Muted.Render(dropHint)
 	}
 	return line
 }
@@ -428,12 +426,7 @@ func (m model) labelView() string {
 		}
 	}
 
-	card := st.Card.Render(st.CardTitle.Render("PREVIEW") + "\n" + rows(
-		"App", tildify(p.Dest),
-		"Bundle", p.BundleID,
-		"Profile", tildify(p.Profile),
-		"Icon", iconSummary(p),
-	))
+	card := st.Card.Render(st.CardTitle.Render("PREVIEW") + "\n" + rows(append(previewRows(p), "Icon", iconSummary(p))...))
 
 	out := []string{
 		hero, "",
@@ -442,12 +435,16 @@ func (m model) labelView() string {
 		st.Muted.Render("quick pick  ") + strings.Join(chips, " "),
 	}
 	if len(m.twins) > 0 {
-		have := make([]string, len(m.twins))
+		out = append(out, "", st.Muted.Render(fmt.Sprintf("Already twinned (%d)", len(m.twins))))
+		const shown = 5
 		for i, t := range m.twins {
+			if i == shown {
+				out = append(out, st.Faint.Render(fmt.Sprintf("  … and %d more", len(m.twins)-shown)))
+				break
+			}
 			label := strings.TrimPrefix(t, p.Src.Name+"-")
-			have[i] = badge(label, autoColor(label))
+			out = append(out, "  "+st.Text.Render(clip(t, 40))+"  "+badge(clip(label, 14), autoColor(label)))
 		}
-		out = append(out, st.Muted.Render("you have    ")+strings.Join(have, " "))
 	}
 	out = append(out, "", card)
 	if p.Exists {
@@ -507,13 +504,14 @@ func (m model) doneView() string {
 	if m.dryRun {
 		title = st.Success.Bold(true).Render("✓ Dry run complete") + st.Muted.Render(" · nothing was changed")
 	}
-	body := title + "\n\n" + rows(
-		"App", tildify(m.plan.Dest),
-		"Bundle", m.plan.BundleID,
-		"Profile", tildify(m.plan.Profile),
-		"Icon", iconSummary(m.plan),
+	kept := false
+	for i, s := range steps {
+		kept = kept || (s.Title == paintStep && m.notes[i] != "")
+	}
+	body := title + "\n\n" + rows(append(previewRows(m.plan),
+		"Icon", iconRow(m.plan, kept),
 		"Time", fmt.Sprintf("%.1fs", m.elapsed.Seconds()),
-	)
+	)...)
 	for i, n := range m.notes {
 		if n != "" {
 			body += "\n\n" + st.Warn.Render("▲ "+steps[i].Title+": "+clip(n, 60))
@@ -552,6 +550,14 @@ func iconSummary(p Plan) string {
 		return dot + st.Muted.Render(" recolored")
 	}
 	return st.Muted.Render("original")
+}
+
+// iconRow summarizes the finished icon, admitting when painting fell back.
+func iconRow(p Plan, kept bool) string {
+	if kept {
+		return st.Muted.Render("original (couldn't repaint it)")
+	}
+	return iconSummary(p)
 }
 
 // clip shortens s to its first line and at most n runes.

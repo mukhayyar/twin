@@ -10,6 +10,7 @@ APP="dist/Twin.app"
 ICON="app/Resources/AppIcon.icns"
 
 [ -f "$ICON" ] || swift scripts/make-icon.swift
+scripts/build-isolate.sh
 
 # Copy each slice out right away: newer SwiftPM writes every triple to the same bin path.
 SLICES="dist/.slices"
@@ -37,6 +38,8 @@ else
 fi
 rm -rf "$SLICES"
 cp "$ICON" "$APP/Contents/Resources/AppIcon.icns"
+# Loaded into every twin to keep it isolated (see cmd/twin/isolate).
+cp cmd/twin/isolate/libtwinisolate.dylib "$APP/Contents/Resources/"
 
 # CFBundleDocumentTypes lets users drop an app on Twin's Dock icon or use Open With → Twin.
 cat > "$APP/Contents/Info.plist" <<EOF

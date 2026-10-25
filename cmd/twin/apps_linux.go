@@ -1,0 +1,130 @@
+package main
+
+import (
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+)
+
+const (
+	windowsPaths = false
+	dropHint     = "Pick from the list, or drag a .desktop file into this window."
+	dirsHelp     = "(default: the XDG applications folders)"
+	pathExample  = "~/Desktop/foo.desktop"
+)
+
+func dataHome() string {
+	if v := os.Getenv("XDG_DATA_HOME"); v != "" {
+		return v
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".local", "share")
+}
+
+func dataDirs() []string {
+	dirs := filepath.SplitList(os.Getenv("XDG_DATA_DIRS"))
+	if len(dirs) == 0 {
+		dirs = []string{"/usr/local/share", "/usr/share"}
+	}
+	home, _ := os.UserHomeDir()
+	for _, extra := range []string{"/var/lib/flatpak/exports/share", filepath.Join(home, ".local/share/flatpak/exports/share")} {
+		if !slices.Contains(dirs, extra) {
+			dirs = append(dirs, extra)
+		}
+	}
+	return dirs
+}
+
+// searchRoots returns the folders scanned for .desktop files, most specific
+// first. TWIN_DIRS overrides them.
+func searchRoots() []string {
+	if v := os.Getenv("TWIN_DIRS"); v != "" {
+		return filepath.SplitList(v)
+	}
+	roots := []string{filepath.Join(dataHome(), "applications")}
+	for _, d := range dataDirs() {
+		roots = append(roots, filepath.Join(d, "applications"))
+	}
+	return append(roots, "/var/lib/snapd/desktop/applications")
+}
+
+// scanApps lists launchable apps. An entry in an earlier root hides one with
+// the same desktop file ID in a later root, as the spec says, even when the
+// earlier one is hidden.
+func scanApps(roots []string) []App {
+	seen := map[string]bool{}
+	var apps []App
+	for _, root := range roots {
+		filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() || !strings.HasSuffix(path, ".desktop") {
+				return nil
+			}
+			rel, _ := filepath.Rel(root, path)
+			id := strings.ReplaceAll(rel, string(filepath.Separator), "-")
+			if seen[id] {
+				return nil
+			}
+			seen[id] = true
+			if a, e, ok := readDesktopApp(path); ok && !a.IsClone && !e.Hidden {
+				apps = append(apps, a)
+			}
+			return nil
+		})
+	}
+	sortApps(apps)
+	return apps
+}
+
+func readDesktopApp(path string) (App, desktopEntry, bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return App{}, desktopEntry{}, false
+	}
+	e := parseDesktop(string(data))
+	if !e.IsApp || e.Name == "" || e.Exec == "" {
+		return App{}, e, false
+	}
+	return App{
+		Name:    strings.ReplaceAll(e.Name, "/", "-"),
+		Path:    path,
+		ID:      filepath.Base(path),
+		Exec:    e.Exec,
+		Icon:    e.Icon,
+		IsClone: e.TwinSource != "",
+	}, e, true
+}
+
+func isAppFile(arg string) bool { return strings.HasSuffix(arg, ".desktop") }
+
+func appFromPath(raw string) (App, error) {
+	path, err := firstPath(raw)
+	if err != nil {
+		return App{}, err
+	}
+	if !strings.HasSuffix(path, ".desktop") {
+		return App{}, fmt.Errorf("%s isn't a .desktop file", filepath.Base(path))
+	}
+	a, _, ok := readDesktopApp(path)
+	switch {
+	case !ok:
+		return App{}, fmt.Errorf("couldn't read an app from %s", filepath.Base(path))
+	case a.IsClone:
+		return App{}, fmt.Errorf("%s is already a twin", a.Name)
+	}
+	return a, nil
+}
+
+// twinsOf lists the names of existing twins of the app called name.
+func twinsOf(name string) []string {
+	matches, _ := filepath.Glob(filepath.Join(dataHome(), "applications", "twin-*.desktop"))
+	var out []string
+	for _, m := range matches {
+		if a, _, ok := readDesktopApp(m); ok && a.IsClone && strings.HasPrefix(a.Name, name+"-") {
+			out = append(out, a.Name)
+		}
+	}
+	return out
+}

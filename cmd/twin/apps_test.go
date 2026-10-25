@@ -7,10 +7,15 @@ import (
 
 func TestShellWords(t *testing.T) {
 	cases := map[string][]string{
-		`/Applications/Visual\ Studio\ Code.app`:        {"/Applications/Visual Studio Code.app"},
 		`'/Applications/Google Chrome.app' `:            {"/Applications/Google Chrome.app"},
 		`"/Applications/Slack.app" /Applications/A.app`: {"/Applications/Slack.app", "/Applications/A.app"},
 		"  /Applications/Zoom.app\n":                    {"/Applications/Zoom.app"},
+	}
+	// Backslashes escape on macOS and Linux; on Windows they separate paths.
+	if windowsPaths {
+		cases[`"C:\Program Files\Slack\slack.exe" C:\A.exe`] = []string{`C:\Program Files\Slack\slack.exe`, `C:\A.exe`}
+	} else {
+		cases[`/Applications/Visual\ Studio\ Code.app`] = []string{"/Applications/Visual Studio Code.app"}
 	}
 	for in, want := range cases {
 		if got := shellWords(in); !reflect.DeepEqual(got, want) {

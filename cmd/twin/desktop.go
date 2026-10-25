@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -139,7 +140,7 @@ func joinExec(args []string) string {
 }
 
 func isFlatpak(args []string) bool {
-	return len(args) > 1 && filepath.Base(args[0]) == "flatpak" && args[1] == "run"
+	return len(args) > 1 && path.Base(args[0]) == "flatpak" && args[1] == "run"
 }
 
 // isSnap spots snap launchers. Snaps get their data folders from snapd and
@@ -166,11 +167,12 @@ var sharedLook = []string{
 
 // flatpakExec rewrites `flatpak run …` so the sandboxed app keeps its data in
 // the profile: flatpak sets the XDG directories itself, so they're overridden
-// with --env, and the profile is shared into the sandbox.
+// with --env, and the profile is shared into the sandbox. These are Linux
+// paths whatever platform builds them, hence path rather than filepath.
 func flatpakExec(args []string, profile string) []string {
 	out := []string{args[0], "run", "--filesystem=" + profile}
 	for _, d := range xdgDirs {
-		out = append(out, "--env="+d[0]+"="+filepath.Join(profile, d[1]))
+		out = append(out, "--env="+d[0]+"="+path.Join(profile, d[1]))
 	}
 	return append(out, args[2:]...)
 }

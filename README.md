@@ -15,7 +15,7 @@ Slack for work, Slack for you, side by side, never sharing a login.
 [![CI](https://img.shields.io/github/actions/workflow/status/mukhayyar/twin/ci.yml?style=flat-square&label=CI)](https://github.com/mukhayyar/twin/actions/workflows/ci.yml)
 [![MIT license](https://img.shields.io/github/license/mukhayyar/twin?style=flat-square&color=04B575)](LICENSE)
 
-**[Download Twin.app](https://github.com/mukhayyar/twin/releases/latest)** &nbsp;·&nbsp; **[Install the CLI](#install)** &nbsp;·&nbsp; **[▶ Watch the 40-second film](assets/twin-promo.mp4)**
+**[Download Twin.app](https://github.com/mukhayyar/twin/releases/latest)** &nbsp;·&nbsp; **[Install the CLI](#install)** &nbsp;·&nbsp; **[▶ Watch the film](assets/twin-promo.mp4)**
 
 <br>
 
@@ -35,6 +35,9 @@ Most Mac apps only let you be one person at a time. Signing in to a second Slack
 Twin makes a full copy of the app that **believes it lives in its own home folder**. Each twin keeps its own logins, settings, caches and window state, gets its own Dock icon, and runs alongside the original.
 
 <div align="center">
+<a href="assets/twin-promo.mp4"><img src="assets/twin-preview.gif" width="860" alt="Twin in action: drop Discord in, clone it as Work, make a Personal twin from the terminal, and run both side by side"></a>
+<br><sub>▶ Click for the full 53-second film</sub>
+<br><br>
 <img src="assets/twins.png" width="860" alt="Discord cloned into Work, Personal and Hobby twins, each recolored with a matching badge">
 </div>
 
@@ -156,59 +159,6 @@ Every twin is repainted so you can tell them apart at a glance in the Dock, Find
 | School | ![School](https://img.shields.io/badge/School-BF5AF2?style=for-the-badge) |
 | Anything else | Picked from ![](https://img.shields.io/badge/-FF375F?style=flat-square) ![](https://img.shields.io/badge/-40C8E0?style=flat-square) ![](https://img.shields.io/badge/-5E5CE6?style=flat-square) ![](https://img.shields.io/badge/-FFD60A?style=flat-square) ![](https://img.shields.io/badge/-FF453A?style=flat-square) ![](https://img.shields.io/badge/-63E6BE?style=flat-square) ![](https://img.shields.io/badge/-AC8E68?style=flat-square) ![](https://img.shields.io/badge/-64D2FF?style=flat-square) by the label's hash, so it's always the same |
 
-## How it works
-
-```mermaid
-flowchart LR
-    A["Slack.app"] -->|copy| B["Slack-Work.app"]
-    B --> C["New bundle ID<br/><code>….slackmacgap.Work</code>"]
-    C --> D["Recolor icon<br/>+ Work badge"]
-    D --> E["Launcher redirects<br/>HOME to the profile"]
-    E --> F["Ad-hoc re-sign"]
-    F --> G["Register with<br/>Launch Services"]
-```
-
-The original app is never modified. The twin's main executable is swapped for a tiny launcher that points the app at its own profile folder before starting the real binary:
-
-```bash
-export HOME="$HOME/.app_profiles/Slack-Work"
-export CFFIXED_USER_HOME="$HOME"   # what Cocoa reads for ~/Library
-exec "Slack.real" "$@"
-```
-
-`HOME` covers command-line style config files. `CFFIXED_USER_HOME` is the one that matters for Mac apps: it's what `NSHomeDirectory()` and every `~/Library` lookup honor. So each twin ends up with:
-
-```text
-~/.app_profiles/
-├── Slack-Work/
-│   └── Library/
-│       ├── Application Support/Slack/   ← sessions, workspaces
-│       ├── Caches/
-│       └── Preferences/
-└── Slack-Personal/
-    └── Library/ …
-```
-
-## Designed with the Laws of UX
-
-Twin's app follows Apple's Human Interface Guidelines and the [Laws of UX](https://lawsofux.com):
-
-| Law | In Twin |
-|---|---|
-| **Jakob's Law** | Standard Mac patterns: sidebar, search, menu commands, context menus, keyboard shortcuts, a window that remembers its size |
-| **Fitts's Law** | The whole window is a drop target. One full-width primary button. Whole rows clickable |
-| **Hick's Law** | One primary action per screen. Four quick picks. Bundle ID and paths tucked under **Details** |
-| **Miller's Law · Common Region** | Three titled cards (Source, Profile name, Icon) of about three rows each |
-| **Doherty Threshold** | Apps load in the background behind skeleton rows. The icon preview re-renders as you type |
-| **Postel's Law** | "my work stuff" becomes `my-work-stuff`. Apps dropped from anywhere, aliases resolved |
-| **Tesler's Law** | No paths to type. "Work" is pre-filled. Twin handles signing, icons and registration |
-| **Goal-Gradient Effect** | A Choose → Name → Clone step indicator, a progress bar and a six-step checklist |
-| **Peak-End Rule** | The new icon pops in, the check bounces, and **Open** is one click away |
-| **Von Restorff Effect** | The gradient Create button is the only accent-filled control. Twins carry a label badge |
-| **Zeigarnik Effect** | Existing twins of the selected app are listed, and reusing a label asks before replacing |
-| **Forgiveness** | Move to Trash is undoable with <kbd>⌘</kbd> <kbd>Z</kbd> or the banner. Wrong drops get a shake and a reason, never an alert |
-| **Accessibility** | VoiceOver labels, Reduce Motion and Increase Contrast respected, and a Choose App… alternative to dragging |
-
 ## FAQ
 
 <details>
@@ -264,13 +214,6 @@ go run ./cmd/twin --dry-run           # the CLI (Go 1.26+)
 scripts/build-app.sh && open dist/Twin.app   # the app (Xcode or Command Line Tools)
 ```
 
-```text
-cmd/twin/     Go CLI: Bubble Tea UI, clone engine, icon painter (icon.js)
-app/          SwiftUI app (Swift package)
-scripts/      build-cli.sh · build-app.sh · make-icon.swift
-demo/         VHS tape for the CLI demo
-promo/        the promo film, rendered from HTML with GSAP + Playwright
-```
 
 ## Roadmap
 

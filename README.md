@@ -35,7 +35,8 @@ Most Mac apps only let you be one person at a time. Signing in to a second Slack
 Twin makes a full copy of the app that **believes it lives in its own home folder**. Each twin keeps its own logins, settings, caches and window state, gets its own Dock icon, and runs alongside the original.
 
 <div align="center">
-<a href="assets/twin-promo.mp4"><img src="assets/promo-poster.png" width="860" alt="Watch Twin in action: clone Discord into Work and Personal twins and run them side by side"></a>
+<a href="assets/twin-promo.mp4"><img src="assets/twin-preview.gif" width="860" alt="Twin in action: drop Discord in, clone it as Work, make a Personal twin from the terminal, and run both side by side"></a>
+<br><sub>▶ Click for the full 53-second film</sub>
 <br><br>
 <img src="assets/twins.png" width="860" alt="Discord cloned into Work, Personal and Hobby twins, each recolored with a matching badge">
 </div>

@@ -118,6 +118,20 @@
   .chat .compose { position: absolute; left: 26px; right: 26px; bottom: 22px; height: 50px; border-radius: 12px; background: #32303d; color: #8f8aa6; font-size: 15px; padding: 0 18px; display: flex; align-items: center; }
   .chat .pill { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 6; padding: 4px 14px; border-radius: 999px; font-size: 14px; font-weight: 800; color: #fff; border: 2px solid rgba(255,255,255,.85); }
 
+  /* Menu bar quick clone and the notch island */
+  .notch { position: absolute; left: 50%; top: 0; width: 196px; height: 36px; margin-left: -98px; background: #000; border-radius: 0 0 16px 16px; z-index: 60; }
+  #island { position: absolute; left: 50%; top: 0; width: 420px; height: 98px; margin-left: -210px; z-index: 61; transform-origin: 50% 0; opacity: 0;
+            background: #000; border-radius: 0 0 30px 30px; color: #fff; }
+  #island .edge { position: absolute; inset: 0; border-radius: 0 0 30px 30px; box-shadow: inset 0 0 0 3px var(--violet); opacity: 0; }
+  #island .row { position: absolute; left: 24px; right: 24px; bottom: 0; height: 62px; display: flex; align-items: center; gap: 14px; opacity: 0; }
+  #island .t { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
+  #island .s { font-size: 14px; color: rgba(255,255,255,.6); margin-top: 2px; }
+  #island .row img { width: 38px; height: 38px; }
+  #island .ring { margin-left: auto; width: 28px; height: 28px; }
+  #island .open { position: absolute; right: 0; padding: 6px 16px; border-radius: 999px; background: var(--violet); font-size: 15px; font-weight: 650; opacity: 0; }
+  #popover { position: absolute; left: 0; top: 0; width: 366px; z-index: 70; opacity: 0; filter: drop-shadow(0 18px 40px rgba(10,0,30,.45)); }
+  #twin img.frame.details { opacity: 0; }
+
   #cursor { position: absolute; left: 0; top: 0; width: 30px; height: 44px; z-index: 100; transform-origin: 3px 3px; pointer-events: none; }
   #ghost, #fly { position: absolute; left: 0; top: 0; width: 92px; height: 92px; z-index: 90; opacity: 0; }
   .ripple { position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; border: 3px solid rgba(255,255,255,.9); opacity: 0; z-index: 99; }
@@ -135,13 +149,13 @@
   #switcher .name span { position: absolute; left: 0; right: 0; opacity: 0; }
 
   /* 4 · features */
-  #s4 .grid { display: grid; grid-template-columns: repeat(2, 640px); gap: 36px; margin-top: 70px; }
-  .card { padding: 44px 48px; border-radius: 32px; background: linear-gradient(160deg, rgba(255,255,255,.09), rgba(255,255,255,.03)); border: 1px solid rgba(255,255,255,.12); opacity: 0; }
+  #s4 .grid { display: grid; grid-template-columns: repeat(3, 540px); gap: 30px; margin-top: 60px; }
+  .card { padding: 36px 38px; border-radius: 30px; background: linear-gradient(160deg, rgba(255,255,255,.09), rgba(255,255,255,.03)); border: 1px solid rgba(255,255,255,.12); opacity: 0; }
   .card .ico { width: 64px; height: 64px; border-radius: 18px; display: grid; place-items: center; margin-bottom: 22px; }
-  .card h3 { font-size: 38px; font-weight: 750; letter-spacing: -0.02em; }
-  .card p { font-size: 25px; color: var(--muted); margin-top: 10px; line-height: 1.35; }
+  .card h3 { font-size: 33px; font-weight: 750; letter-spacing: -0.02em; }
+  .card p { font-size: 22px; color: var(--muted); margin-top: 10px; line-height: 1.35; }
   .card .row { display: flex; gap: 10px; margin-top: 18px; }
-  .card .row img { width: 64px; height: 64px; }
+  .card .row img { width: 56px; height: 56px; }
 
   /* 5 · outro */
   #s5 img { width: 220px; height: 220px; filter: drop-shadow(0 30px 70px rgba(125,86,244,.6)); }
@@ -180,12 +194,30 @@
       <svg width="17" height="20" viewBox="0 0 17 20" fill="#fff"><path d="M14.1 10.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.3-.9-1.700 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.6 1.3 10.1.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.300-.8 1.6 0 2 .8 3.3.8 1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.900 0 0-2.7-1-2.7-3.9zM11.6 3c.7-.9 1.2-2 1-3.2-1 0-2.3.7-3 1.6-.7.8-1.2 2-1.1 3.1 1.2.1 2.3-.6 3.1-1.5z"/></svg>
       <b id="mb-app">Finder</b><span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span>
       <div class="right">
+        <span id="mb-twin"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="3"/><path d="M16 5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2"/></svg></span>
         <svg width="22" height="16" viewBox="0 0 22 16" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M1.5 5.5a14 14 0 0 1 19 0"/><path d="M5 9a9 9 0 0 1 12 0"/><path d="M8.5 12.5a4 4 0 0 1 5 0"/></svg>
         <svg width="30" height="15" viewBox="0 0 30 15" fill="none"><rect x="1" y="1" width="24" height="13" rx="3.5" stroke="#fff" stroke-width="1.6"/><rect x="3.5" y="3.5" width="17" height="8" rx="1.8" fill="#fff"/><path d="M27.5 5v5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="7.5" cy="7.5" r="5.5"/><path d="m12 12 4.5 4.5"/></svg>
         <span>Sun Oct 25&nbsp;&nbsp;9:41 AM</span>
       </div>
     </div>
+
+    <div class="notch"></div>
+    <div id="island">
+      <div class="edge"></div>
+      <div class="row drop">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7D56F4" stroke-width="2.2" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="3"/><path d="M16 5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2"/></svg>
+        <div><div class="t">Drop to make a twin</div><div class="s">Pick a profile name, then clone</div></div>
+      </div>
+      <div class="row job">
+        <img src="media/zoom.us-work.png" alt="">
+        <div><div class="t" id="isl-title">Cloning zoom.us</div><div class="s" id="isl-sub">Copy app bundle</div></div>
+        <svg class="ring" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="3"/>
+          <circle id="isl-ring" cx="14" cy="14" r="11" fill="none" stroke="#7D56F4" stroke-width="3" stroke-linecap="round" stroke-dasharray="69.12" stroke-dashoffset="69.12" transform="rotate(-90 14 14)"/></svg>
+        <div class="open" id="isl-open">Open</div>
+      </div>
+    </div>
+    <img id="popover" src="media/popover.png" alt="">
 
     <div class="win" id="finder">
       <div class="lights"><i></i><i></i><i></i></div>
@@ -199,7 +231,7 @@
           <div class="app"><img src="media/dock/chrome.png" alt="">Google Chrome</div>
           <div class="app"><img src="media/dock/safari.png" alt="">Safari</div>
           <div class="app"><img src="media/dock/twin.png" alt="">Twin</div>
-          <div class="app"><img src="media/dock/zoom.png" alt="">zoom.us</div>
+          <div class="app" id="fi-zoom"><img src="media/dock/zoom.png" alt="">zoom.us</div>
         </div>
       </div>
     </div>
@@ -207,6 +239,7 @@
     <div class="win" id="twin">
       <img class="frame" id="gui-empty" src="media/app-empty.png" alt="">
       <img class="frame" id="gui" alt="" style="opacity:0">
+      <img class="frame details" id="gui-details" src="media/details.png" alt="">
     </div>
 
     <div class="win" id="term">
@@ -252,6 +285,7 @@
       <div class="slot" data-k="twin"><img src="media/dock/twin.png" alt=""><i class="dot"></i></div>
       <div class="slot new" data-k="work"><img src="media/dock/discord-work.png" alt=""><i class="dot"></i></div>
       <div class="slot new" data-k="personal"><img src="media/dock/discord-personal.png" alt=""><i class="dot"></i></div>
+      <div class="slot new" data-k="zoomwork"><img src="media/zoom.us-work.png" alt=""><i class="dot"></i></div>
       <div class="slot" data-k="settings"><img src="media/dock/settings.png" alt=""><i class="dot"></i></div>
       <div class="sep"></div>
       <div class="slot" data-k="trash"><img src="media/dock/trash.png" alt=""></div>
@@ -277,7 +311,7 @@
   <div class="grid">
     <div class="card">
       <div class="ico" style="background:#0A84FF"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
-      <h3>Isolated profiles</h3><p>Each twin gets its own home and ~/Library. Logins, caches and settings never mix.</p>
+      <h3>Truly separate</h3><p>Its own files, keychain, temp folder and hardware ID. Nothing leaks between twins.</p>
     </div>
     <div class="card">
       <div class="ico" style="background:#FF9F0A"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.6-.7 1.6-1.6 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16c3.3 0 6-2.7 6-6C22 6 17.5 2 12 2z"/></svg></div>
@@ -286,11 +320,19 @@
     </div>
     <div class="card">
       <div class="ico" style="background:#30D158"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></div>
-      <h3>Drag &amp; drop</h3><p>Drop any .app on the window, the Dock icon, or even the terminal.</p>
+      <h3>Bring your data</h3><p>Start fresh, or tick one box to copy the original's settings. Instant on APFS.</p>
     </div>
     <div class="card">
-      <div class="ico" style="background:#BF5AF2"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2.5"/><path d="M8 21h8M12 18v3M6 9l3 2.5L6 14M11 14h4"/></svg></div>
-      <h3>Two ways to run</h3><p>A native SwiftUI app and a CLI. Universal for Apple silicon and Intel.</p>
+      <div class="ico" style="background:#7D56F4"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="3"/><path d="M16 5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2"/></svg></div>
+      <h3>Menu bar &amp; notch</h3><p>Clone from the menu bar, or drop an app on the notch. Progress shows up top.</p>
+    </div>
+    <div class="card">
+      <div class="ico" style="background:#FF375F"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><rect x="5" y="11" width="3" height="7" rx="1"/><rect x="10.5" y="6" width="3" height="12" rx="1"/><rect x="16" y="9" width="3" height="9" rx="1"/></svg></div>
+      <h3>Insights</h3><p>Memory, disk use and what's kept separate. One click when a twin needs updating.</p>
+    </div>
+    <div class="card">
+      <div class="ico" style="background:#40C8E0"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></div>
+      <h3>Always current</h3><p>A .dmg, AppImage or .exe to start. Twin and its CLI update themselves.</p>
     </div>
   </div>
 </section>
@@ -299,8 +341,8 @@
   <img src="media/twin-icon.png" alt="">
   <h1 class="grad">Twin</h1>
   <p class="url">github.com/mukhayyar/twin</p>
-  <div class="pills"><span class="pill">✦ Twin.app</span><span class="pill">❯ twin CLI</span><span class="pill">Free &amp; open source</span></div>
-  <p class="cmd mono">curl -fsSL https://raw.githubusercontent.com/mukhayyar/twin/main/install.sh | bash</p>
+  <div class="pills"><span class="pill">✦ Twin.app</span><span class="pill">❯ twin CLI</span><span class="pill">macOS · Linux · Windows</span><span class="pill">Free &amp; open source</span></div>
+  <p class="cmd mono">brew install --cask mukhayyar/tap/twin</p>
 </section>
 
 <script src="node_modules/gsap/dist/gsap.min.js"></script>
@@ -308,13 +350,13 @@
 const media = { gui: Object.assign({ count: 0, fps: 30 }, (window.MEDIA || {}).gui) };
 // When, inside the app's scripted demo, the Create button is pressed, and where
 // it sits as a fraction of the window. Measured from the recorded frames.
-const createAt = media.gui.createAt ?? 3.7;
-const createPos = media.gui.createPos ?? [0.62, 0.705];
+const createAt = media.gui.createAt ?? 3.85;
+const createPos = media.gui.createPos ?? [0.623, 0.921];
 const guiLen = media.gui.count ? media.gui.count / media.gui.fps : 9;
 
 // Terminal clip (promo-cli.mp4): where to start, how fast, and when the
 // "is ready" box appears in clip time.
-const CLI = { from: 0.4, speed: 1.15, done: 8.9 };
+const CLI = { from: 0.4, speed: 1.15, done: 6.7 };
 
 // ── Desktop geometry (screen pixels, camera at rest) ──
 const DOCK_Y = 1020;
@@ -340,10 +382,22 @@ E.tidy = E.flyPersonal + 1.5;
 E.clickWork = E.tidy + 0.9;
 E.clickPersonal = E.clickWork + 1.7;
 E.switcher = E.clickPersonal + 2.6;
-E.end = E.switcher + 3.4;
+// The quick clone: drag an app to the notch, name it in the menu bar, watch the island.
+E.quick = E.switcher + 3.0;
+E.qFinder = E.quick + 0.5;
+E.qGrab = E.quick + 2.2;
+E.qIsland = E.qGrab + 0.25;
+E.qDrop = E.qGrab + 1.6;
+E.qPopover = E.qDrop + 0.35;
+E.qCreate = E.qPopover + 1.9;
+E.qJob = E.qCreate + 0.45;
+E.qReady = E.qJob + 2.4;
+E.qFly = E.qReady + 1.1;
+E.details = E.qFly + 1.6;          // inside a twin
+E.end = E.details + 5.4;
 
 const T = { s1: 0, s2: 3.4, s3: 9.4 };
-T.s4 = T.s3 + E.end; T.s5 = T.s4 + 4.2; T.end = T.s5 + 4.6;
+T.s4 = T.s3 + E.end; T.s5 = T.s4 + 5.4; T.end = T.s5 + 4.6;
 const D = (t) => T.s3 + t;
 
 const tag = document.getElementById('tagline');
@@ -392,8 +446,9 @@ const click = (x, y, at) => {
   tl.to('#cursor', { scale: 0.82, duration: 0.08 }, D(at)).to('#cursor', { scale: 1, duration: 0.14 }, D(at + 0.08))
     .fromTo('#ripple', { left: x, top: y, scale: 0.3, opacity: 0.9 }, { scale: 1.3, opacity: 0, duration: 0.45, ease: 'power2.out' }, D(at));
 };
-const caption = (text, at, until) => {
+const caption = (text, at, until, place = 'top') => {
   tl.call(() => { document.getElementById('cap').textContent = text; }, null, D(at) - 0.001)
+    .set('#cap', { top: place === 'top' ? 64 : 840 }, D(at) - 0.001)
     .fromTo('#cap', { opacity: 0, y: -14 }, { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' }, D(at))
     .to('#cap', { opacity: 0, y: -8, duration: 0.25, ease: 'power2.in' }, D(until));
 };
@@ -506,7 +561,84 @@ tl.fromTo('#switcher', { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, dura
     .set('#switcher .name span', { opacity: 0 }, at)
     .set(`#switcher .name span:nth-child(${pos + 1})`, { opacity: 1 }, at);
 });
-tl.to('#switcher', { opacity: 0, duration: 0.25 }, D(E.end - 0.7));
+tl.to('#switcher', { opacity: 0, duration: 0.25 }, D(E.switcher + 2.7));
+
+// Even faster: drag an app onto the notch.
+closeWin('#chat-work', WIN.work, slotX(8, 2), E.quick);
+closeWin('#chat-personal', WIN.personal, slotX(9, 2), E.quick + 0.1);
+menuApp('Finder', E.quick + 0.2);
+openWin('#finder', [100, 120, 780, 520], slotX(0, 2), E.qFinder);
+caption('Even faster: drop an app on the notch.', E.quick + 0.3, E.qDrop + 0.2, 'bottom');
+const fz = document.getElementById('fi-zoom').getBoundingClientRect();
+const zoomGrab = [fz.left + fz.width / 2, fz.top + 46];
+const islandAt = [960, 66];
+move(zoomGrab[0], zoomGrab[1], E.qFinder + 0.5, 1.0);
+click(zoomGrab[0], zoomGrab[1], E.qGrab);
+tl.set('#ghost', { attr: { src: 'media/dock/zoom.png' }, x: zoomGrab[0] - 46, y: zoomGrab[1] - 46, scale: 1, opacity: 0 }, D(E.qGrab))
+  .to('#ghost', { opacity: 0.85, duration: 0.15 }, D(E.qGrab + 0.1));
+move(islandAt[0], islandAt[1] + 8, E.qGrab + 0.15, 1.35, 'power1.inOut');
+tl.to('#ghost', { x: islandAt[0] - 46, y: islandAt[1] - 30, duration: 1.35, ease: 'power1.inOut' }, D(E.qGrab + 0.15));
+// The island drops from the notch as soon as an app is dragged.
+tl.set('#island .drop', { opacity: 1 }, D(E.qIsland))
+  .fromTo('#island', { opacity: 0, scaleX: 0.5, scaleY: 0.35 }, { opacity: 1, scaleX: 1, scaleY: 1, duration: 0.45, ease: 'back.out(1.6)' }, D(E.qIsland))
+  .to('#island .edge', { opacity: 1, duration: 0.2 }, D(E.qDrop - 0.45))
+  .to('#ghost', { scale: 0.3, opacity: 0, duration: 0.25, ease: 'power2.in' }, D(E.qDrop))
+  .to('#island', { opacity: 0, scaleX: 0.5, scaleY: 0.35, duration: 0.25, ease: 'power2.in' }, D(E.qDrop + 0.1))
+  .set('#island .edge', { opacity: 0 }, D(E.qDrop + 0.4))
+  .set('#island .drop', { opacity: 0 }, D(E.qDrop + 0.4));
+
+// Name it in the menu bar popover.
+const mb = document.getElementById('mb-twin').getBoundingClientRect();
+const POP = { w: 366, h: 308, tip: 0.472, create: [0.499, 0.867] };
+const popXY = [mb.left + mb.width / 2 - POP.w * POP.tip, 38];
+tl.set('#popover', { x: popXY[0], y: popXY[1], transformOrigin: `${POP.w * POP.tip}px 0px` }, D(0))
+  .fromTo('#popover', { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.25, ease: 'power2.out' }, D(E.qPopover))
+  .to('#popover', { opacity: 0, scale: 0.96, duration: 0.2, ease: 'power2.in' }, D(E.qCreate + 0.3));
+caption('Name it from the menu bar.', E.qPopover + 0.2, E.qCreate + 0.3, 'bottom');
+camera(1.6, popXY[0] + POP.w / 2, popXY[1] + POP.h / 2, E.qPopover - 0.1, 0.9);
+const popCreate = [popXY[0] + POP.w * POP.create[0], popXY[1] + POP.h * POP.create[1]];
+move(popCreate[0], popCreate[1], E.qCreate - 0.9, 0.8);
+click(popCreate[0], popCreate[1], E.qCreate);
+
+// Watch it clone, right at the top.
+caption('It clones right at the top.', E.qJob + 0.1, E.qFly, 'bottom');
+camera(1.7, 960, 60, E.qCreate + 0.15, 0.8);
+move(1240, 420, E.qCreate + 0.4, 0.9);
+const stepNames = ['Copy app bundle', 'Update bundle identifier', 'Paint icon & badge', 'Set up isolated profile',
+  'Clear quarantine & re-sign', 'Register with Launch Services'];
+tl.call(() => { document.getElementById('isl-title').textContent = 'Cloning zoom.us'; }, null, D(E.qJob) - 0.002)
+  .set('#isl-open', { opacity: 0 }, D(E.qJob))
+  .set('#island .ring', { opacity: 1 }, D(E.qJob))
+  .set('#island .job', { opacity: 1 }, D(E.qJob))
+  .fromTo('#island', { opacity: 0, scaleX: 0.5, scaleY: 0.35 }, { opacity: 1, scaleX: 1, scaleY: 1, duration: 0.45, ease: 'back.out(1.6)' }, D(E.qJob))
+  .fromTo('#isl-ring', { attr: { 'stroke-dashoffset': 69.12 } }, { attr: { 'stroke-dashoffset': 0 }, duration: E.qReady - E.qJob - 0.25, ease: 'none' }, D(E.qJob + 0.1));
+stepNames.forEach((name, i) => {
+  tl.call(() => { document.getElementById('isl-sub').textContent = name; }, null, D(E.qJob + 0.1 + i * (E.qReady - E.qJob - 0.25) / 6));
+});
+tl.call(() => {
+  document.getElementById('isl-title').textContent = 'zoom.us-Work is ready';
+  document.getElementById('isl-sub').textContent = 'Click to open it';
+}, null, D(E.qReady))
+  .to('#island .ring', { opacity: 0, duration: 0.15 }, D(E.qReady))
+  .fromTo('#isl-open', { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(2)' }, D(E.qReady + 0.05));
+camera(1, 960, 540, E.qReady + 0.6, 0.9);
+tl.to('#island', { opacity: 0, scaleX: 0.5, scaleY: 0.35, duration: 0.3, ease: 'power2.in' }, D(E.qFly + 0.2))
+  .set('#island .job', { opacity: 0 }, D(E.qFly + 0.6));
+addSlot('zoomwork', E.qFly + 0.4);
+fly('media/zoom.us-work.png', islandAt, [slotX(10, 3), DOCK_Y], E.qFly);
+
+// Inside every twin: what it uses, what it keeps separate.
+closeWin('#finder', [100, 120, 780, 520], slotX(0, 3), E.qFly + 0.9);
+tl.set('#gui', { opacity: 0 }, D(E.details) - 0.01).set('#gui-empty', { opacity: 0 }, D(E.details) - 0.01)
+  .set('#gui-details', { opacity: 1 }, D(E.details) - 0.01);
+move(slotX(7, 3), DOCK_Y, E.details - 0.8, 0.7);
+click(slotX(7, 3), DOCK_Y, E.details - 0.1);
+openWin('#twin', WIN.twin, slotX(7, 3), E.details);
+menuApp('Twin', E.details + 0.1);
+caption('See inside every twin.', E.details + 0.4, E.end - 0.4);
+move(1300, 760, E.details + 0.6, 0.9);
+camera(1.45, WIN.twin[0] + WIN.twin[2] * 0.62, WIN.twin[1] + WIN.twin[3] * 0.5, E.details + 0.9, 1.1);
+camera(1, 960, 540, E.end - 1.2, 0.9);
 hide('#s3', T.s4 - 0.45);
 
 // 4 · features

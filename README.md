@@ -45,8 +45,8 @@ Twin makes a full copy of the app that **believes it's on its own machine**. Eac
 > **Twins also change the hardware fingerprint, unless you turn it off.** By default each twin sees its own stable MAC addresses, hardware UUID and serial number, so apps that identify a machine by its hardware treat it as a separate device. That's what gives a RustDesk twin its own ID. For apps licensed per device, untick **Own hardware ID** in the app (or pass `--share-hardware` to the CLI) and the twin sees this Mac's real hardware instead. Everything else stays separate either way.
 
 <div align="center">
-<a href="assets/twin-promo.mp4"><img src="assets/twin-preview.gif" width="860" alt="Twin in action: drop Discord in, clone it as Work, make a Personal twin from the terminal, and run both side by side"></a>
-<br><sub>▶ Click for the full 53-second film</sub>
+<a href="assets/twin-promo.mp4"><img src="assets/twin-preview.gif" width="860" alt="Twin in action: drop Discord in and clone it as Work, then drop Zoom on the notch, name it in the menu bar and watch it clone"></a>
+<br><sub>▶ Click for the full film</sub>
 <br><br>
 <img src="assets/twins.png" width="860" alt="Discord cloned into Work, Personal and Hobby twins, each recolored with a matching badge">
 </div>
@@ -65,10 +65,38 @@ Twin makes a full copy of the app that **believes it's on its own machine**. Eac
 <td><img src="assets/demo-cli.gif" alt="The twin CLI: filter to Slack, type Work, clone"></td>
 </tr>
 <tr>
-<td>A native SwiftUI app. Drop an app on the window or the Dock icon, pick a label, press <kbd>⌘</kbd> <kbd>↩</kbd>. Manage, open and trash your twins from the sidebar.</td>
+<td>A native SwiftUI app. Drop an app on the window, the Dock icon, the menu bar icon or the notch, pick a label, press <kbd>⌘</kbd> <kbd>↩</kbd>. Manage, inspect and update your twins from the sidebar.</td>
 <td>A <a href="https://github.com/charmbracelet/bubbletea">Bubble Tea</a> TUI. Filter, <kbd>tab</kbd> through quick picks, <kbd>enter</kbd>. Or skip the UI entirely: <code>twin Slack Work</code>.</td>
 </tr>
 </table>
+
+### Clone without opening the window
+
+<table>
+<tr>
+<th width="50%">From the menu bar</th>
+<th width="50%">From the notch</th>
+</tr>
+<tr>
+<td><img src="assets/menubar.png" alt="Twin's menu bar popover: Zoom picked, named Work, Create Twin"></td>
+<td><img src="assets/island.png" alt="The notch island showing zoom.us-Work is ready, with an Open button"></td>
+</tr>
+<tr>
+<td>Click Twin's menu bar icon, pick an app, name it, create. Or drop an app on the icon.</td>
+<td>Start dragging any app and a pill drops down from the notch: drop the app there. It shows the clone's progress too, then opens the new twin.</td>
+</tr>
+</table>
+
+### Inside every twin
+
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/details-dark.png">
+  <img src="assets/details-light.png" width="860" alt="A twin's page: running status, profile and app size, where the disk space goes, and everything kept separate">
+</picture>
+</div>
+
+Select a twin to see whether it's running and how much memory it uses, how much space its profile takes and where it goes, what's kept separate, and an **Update Twin** button when the original app has a newer version.
 
 ## Install
 

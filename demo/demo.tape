@@ -47,7 +47,11 @@ Sleep 1s
 
 # Name the profile and watch the preview update live.
 Type@160ms "Work"
-Sleep 1.6s
+Sleep 1.2s
+
+# Optionally start the twin with a copy of the original's data.
+Ctrl+D
+Sleep 1.4s
 Enter
 
 # Clone, then admire the result.

@@ -196,6 +196,22 @@ final class AppStore: ObservableObject {
         start(plan, replacing: replacing)
     }
 
+    /// The app a twin was made from, if it's still installed.
+    func original(of clone: AppInfo) -> AppInfo? {
+        apps.first { clone.twinOf == $0.name && ($0.bundleID.isEmpty || clone.bundleID.hasPrefix($0.bundleID + ".")) }
+    }
+
+    /// Re-creates a twin from the current original: a newer app version, the latest isolation.
+    /// The profile, and so its logins and data, are kept.
+    func updateTwin(_ clone: AppInfo) {
+        guard let original = original(of: clone), let label = clone.cloneLabel, !isCloning else { return }
+        let info = NSDictionary(contentsOf: clone.url.appendingPathComponent("Contents/Info.plist"))
+        let shared = (info?["LSEnvironment"] as? [String: String])?["TWIN_HARDWARE"] == "shared"
+        let plan = ClonePlan(source: original, rawLabel: label, icon: iconOptions, ownHardware: !shared)
+        adopt(original) // the window follows the job
+        start(plan, replacing: true)
+    }
+
     func showMainWindow() {
         NSApp.activate(ignoringOtherApps: true)
         openMainWindow?()

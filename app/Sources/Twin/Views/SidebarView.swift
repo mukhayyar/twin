@@ -43,22 +43,27 @@ struct SidebarView: View {
                 ContentUnavailableView.search(text: store.search)
             }
         }
-        .safeAreaInset(edge: .bottom) {
-            HStack {
-                Button { store.chooseApp() } label: {
-                    Label("Choose App…", systemImage: "plus")
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            // An opaque bar, so the list scrolling underneath never shows through the button.
+            VStack(spacing: 0) {
+                Divider()
+                HStack {
+                    Button { store.chooseApp() } label: {
+                        Label("Choose App…", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Choose an app from any folder (⌘O)")
+                    Spacer()
+                    if store.hasLoaded {
+                        Text("\(store.apps.count) apps")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .buttonStyle(.borderless)
-                .help("Choose an app from any folder (⌘O)")
-                Spacer()
-                if store.hasLoaded {
-                    Text("\(store.apps.count) apps")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
+            .background(.bar)
         }
         .toolbar {
             ToolbarItem {

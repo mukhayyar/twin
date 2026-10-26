@@ -134,6 +134,7 @@ The CLI runs there too. On Linux, download **`twin-x.y.z-x86_64.AppImage`** (or 
 | **Copy data** | Off by default: a twin starts fresh. Tick **Copy data from …** to start it with a copy of the original's settings and data |
 | **Create** | <kbd>⌘</kbd> <kbd>↩</kbd>. Twin shows each step, then offers to open it |
 | **Manage** | Right-click a twin in the sidebar to Open, Show in Finder, Copy Path or Move to Trash (<kbd>⌘</kbd> <kbd>Z</kbd> undoes it) |
+| **Inspect a twin** | Select it in the sidebar: whether it's running and how much memory it uses, its disk use and where it goes, what's kept separate, and an **Update Twin** button when the original app has a newer version |
 | **From the menu bar** | Click Twin's menu bar icon to clone without opening the window, or drop an app on it |
 | **From the notch** | Start dragging any app and a Dynamic Island-style pill drops down from the top of the screen: drop the app there to clone it. The pill also shows each clone's progress; click it to open the new twin |
 

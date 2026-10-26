@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -133,6 +134,8 @@ func setupProfile(p Plan) (string, error) {
 		{"CFBundleExecutable", twinExec(p)},
 		{"TwinOriginalBundleID", p.Src.ID},
 		{"TwinProfile", p.Profile},
+		{"TwinVersion", strings.TrimPrefix(resolvedVersion(), "v")},
+		{"TwinCopiedData", strconv.FormatBool(p.BringData)},
 	}
 	for _, kv := range twinEnv(p) {
 		edits = append(edits, []string{"LSEnvironment." + kv[0], kv[1]})

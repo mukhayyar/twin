@@ -36,6 +36,7 @@ enum Automation {
 
         let target = TwinEnv.select.flatMap(store.app(named:))
         if let target { store.selection = .app(target.id) }
+        if target == nil, let twin = store.clones.first(where: { $0.name == TwinEnv.select }) { store.selection = .clone(twin.id) }
         if let label = TwinEnv.label { store.label = label }
 
         switch TwinEnv.snapshotState {

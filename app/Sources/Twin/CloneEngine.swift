@@ -178,8 +178,10 @@ enum CloneEngine {
 
         let info = infoPlist(plan)
         _ = try? run("/usr/bin/plutil", ["-insert", "LSEnvironment", "-dictionary", info]) // fails if one exists
+        let twinVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
         var edits = [("CFBundleExecutable", executable), ("TwinOriginalBundleID", plan.source.bundleID),
-                     ("TwinProfile", plan.profileURL.path)]
+                     ("TwinProfile", plan.profileURL.path), ("TwinVersion", twinVersion),
+                     ("TwinCopiedData", plan.bringData ? "true" : "false")]
         edits += twinEnv(plan: plan).map { ("LSEnvironment.\($0.key)", $0.value) }
         for (key, value) in edits {
             try run("/usr/bin/plutil", ["-replace", key, "-string", value, info])

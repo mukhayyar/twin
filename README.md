@@ -74,7 +74,7 @@ Twin makes a full copy of the app that **believes it's on its own machine**. Eac
 
 ### The app
 
-1. Download **`Twin-x.y.z.zip`** from the [latest release](https://github.com/mukhayyar/twin/releases/latest) and drag **Twin.app** into Applications.
+1. Download **`Twin-x.y.z.dmg`** from the [latest release](https://github.com/mukhayyar/twin/releases/latest), open it and drag **Twin** to **Applications**.
 2. Twin is open source and ad-hoc signed rather than notarized, so the first launch needs a right-click → **Open**, or:
 
    ```bash
@@ -82,6 +82,8 @@ Twin makes a full copy of the app that **believes it's on its own machine**. Eac
    ```
 
    Or with Homebrew: `brew install --cask mukhayyar/tap/twin`
+
+Twin keeps itself up to date: it checks for new versions once a day (or **Twin → Check for Updates…**), and installs them in one click.
 
 ### The CLI
 
@@ -110,9 +112,11 @@ go install github.com/mukhayyar/twin/cmd/twin@latest
 
 </details>
 
+Update the CLI any time with `twin --update` (or `brew upgrade twin`).
+
 ### Linux and Windows
 
-The CLI runs there too. Homebrew and the installer above work on Linux (x86-64 and ARM64); on Windows, download `twin_x.y.z_windows_*.zip`.
+The CLI runs there too. On Linux, download **`twin-x.y.z-x86_64.AppImage`** (or `-aarch64`), `chmod +x` it and run it; Homebrew and the installer above work as well. On Windows, download **`twin-x.y.z-windows-amd64.exe`** and run it in a terminal.
 
 - **Linux:** a twin is a new app-menu entry with its own profile: files and settings (HOME and XDG folders), `/tmp`, app sockets and hardware fingerprint are all kept apart. Chromium and Electron apps keep their saved passwords inside the twin's profile instead of the shared desktop keyring; other apps' keyring entries stay shared. Flatpak apps work; Snap apps can't be twinned.
 - **Windows (experimental):** a twin is a Start Menu shortcut that runs the app with its own user folders. Apps that only allow one running copy won't open twice.
@@ -127,8 +131,11 @@ The CLI runs there too. Homebrew and the installer above work on Linux (x86-64 a
 | **Name the twin** | Type a label or click a quick pick: Work, Personal, Hobby, School |
 | **Style the icon** | Auto color (or pick your own), badge on/off, tint on/off, previewed live |
 | **Hardware ID** | **Own hardware ID** is on by default; untick it for apps licensed per device |
+| **Copy data** | Off by default: a twin starts fresh. Tick **Copy data from …** to start it with a copy of the original's settings and data |
 | **Create** | <kbd>⌘</kbd> <kbd>↩</kbd>. Twin shows each step, then offers to open it |
 | **Manage** | Right-click a twin in the sidebar to Open, Show in Finder, Copy Path or Move to Trash (<kbd>⌘</kbd> <kbd>Z</kbd> undoes it) |
+| **From the menu bar** | Click Twin's menu bar icon to clone without opening the window, or drop an app on it |
+| **From the notch** | Start dragging any app and a Dynamic Island-style pill drops down from the top of the screen: drop the app there to clone it. The pill also shows each clone's progress; click it to open the new twin |
 
 | Shortcut | |
 |---|---|
@@ -159,6 +166,8 @@ twin -n                     try the whole flow without touching the disk
 | `-c`, `--color` | `auto` (default), `none`, a name (`blue` `green` `orange` `purple` `pink` `teal` `indigo` `yellow` `red` `mint` `brown` `cyan`) or `#RRGGBB` |
 | `--no-badge` | Keep the label off the icon |
 | `--share-hardware` | Let the twin see this Mac's real hardware IDs instead of its own (macOS) |
+| `--copy-data` | Start the twin with a copy of the original's settings and data instead of a fresh profile |
+| `-u`, `--update` | Update twin to the latest release |
 | `-v`, `--version` | Print the version |
 
 | Key | |
@@ -168,6 +177,7 @@ twin -n                     try the whole flow without touching the disk
 | <kbd>enter</kbd> | Choose / create |
 | <kbd>tab</kbd> | Cycle quick-pick labels |
 | <kbd>ctrl</kbd> <kbd>o</kbd> | Toggle own hardware ID |
+| <kbd>ctrl</kbd> <kbd>d</kbd> | Toggle copying the original's data |
 | <kbd>esc</kbd> | Back |
 | <kbd>o</kbd> | Open the new twin |
 | <kbd>q</kbd> | Quit |
@@ -222,6 +232,17 @@ Twins are independent copies, so they keep their version. Re-create the twin wit
 </details>
 
 <details>
+<summary><b>Can a twin start with my existing settings?</b></summary>
+
+<br>
+
+Yes: tick **Copy data from …** (or pass `--copy-data`). Twin copies the original's app data, preferences, cookies and sandbox container into the new twin's profile, skipping caches. On macOS the copies are APFS clones, so even gigabytes copy instantly and take no extra space until they change. It never overwrites data a twin already has.
+
+Two things don't come along: sign-ins kept in the keychain (each twin has its own keychain items, so some apps ask you to sign in again), and anything the app keeps on a server. Copying also brings over any device identity the app stores in its settings, so leave it off for apps like RustDesk where each copy should be a different device. Quit the original first for the cleanest copy.
+
+</details>
+
+<details>
 <summary><b>How do I remove a twin?</b></summary>
 
 <br>
@@ -262,6 +283,9 @@ scripts/build-app.sh && open dist/Twin.app   # the app (Xcode or Command Line To
 - [x] Windows CLI (experimental): shortcut twins with their own user folders and temp
 - [x] Homebrew tap
 - [x] Full isolation on Linux: `/tmp`, app sockets, hardware fingerprint, Chromium/Electron passwords
+- [x] Optionally start a twin with a copy of the original's data
+- [x] One-file downloads (`.dmg`, AppImage, `.exe`) and built-in updates
+- [x] Menu bar quick clone and the notch island
 - [ ] Twin.app icon in the new macOS 26 format
 
 ## Credits

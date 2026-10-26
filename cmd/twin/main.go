@@ -41,6 +41,7 @@ Flags:
                       its own (for apps licensed per device; macOS)
       --copy-data     start the twin with a copy of the original's settings
                       and data instead of a fresh profile
+  -u, --update        update twin to the latest release
   -v, --version       print the version
 
 Environment:
@@ -51,7 +52,7 @@ Tip: ` + strings.ToLower(dropHint[:1]) + dropHint[1:] + `
 `
 
 func main() {
-	var yes, dryRun, showVersion, noBadge, shareHardware, copyData bool
+	var yes, dryRun, showVersion, noBadge, shareHardware, copyData, update bool
 	var color string
 	flag.BoolVar(&yes, "yes", false, "")
 	flag.BoolVar(&yes, "y", false, "")
@@ -62,6 +63,8 @@ func main() {
 	flag.BoolVar(&noBadge, "no-badge", false, "")
 	flag.BoolVar(&shareHardware, "share-hardware", false, "")
 	flag.BoolVar(&copyData, "copy-data", false, "")
+	flag.BoolVar(&update, "update", false, "")
+	flag.BoolVar(&update, "u", false, "")
 	flag.BoolVar(&showVersion, "version", false, "")
 	flag.BoolVar(&showVersion, "v", false, "")
 	flag.Usage = func() { fmt.Fprint(os.Stderr, usage) }
@@ -78,6 +81,12 @@ func main() {
 
 	if showVersion {
 		fmt.Println("twin", resolvedVersion())
+		return
+	}
+	if update {
+		if err := selfUpdate(); err != nil {
+			fail(1, err)
+		}
 		return
 	}
 

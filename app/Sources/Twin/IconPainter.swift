@@ -1,4 +1,5 @@
 import AppKit
+import QuickLookThumbnailing
 import CoreImage
 
 /// How a twin's icon is painted. Mirrors the CLI's `--color auto|none|<name>|#hex` and `--no-badge`.
@@ -72,16 +73,38 @@ enum IconPainter {
 
     /// The twin's icon at `size` px: the source icon, tinted and badged per `options`.
     static func render(source: URL, label: String, options: IconOptions, size: Int = 1024) -> CGImage? {
-        // Resolve symlinks first, or the alias arrow gets baked into the icon (e.g. /Applications/Safari.app).
-        let icon = NSWorkspace.shared.icon(forFile: source.resolvingSymlinksInPath().path)
-        guard var image = draw(size: size, { _, rect in
-            icon.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1)
-        }) else { return nil }
+        guard var image = appIcon(source, size: size) else { return nil }
 
         let color = self.color(for: label, options: options)
         if options.tint, let tinted = tint(image, toward: color) { image = tinted }
         if options.badge, let badged = badge(image, label: label, color: color) { image = badged }
         return image
+    }
+
+    /// The app's icon as Finder shows it. NSWorkspace may hand back its "still loading"
+    /// placeholder, which a single draw bakes into the preview and the twin's icon; Quick Look
+    /// answers only once the real icon is ready. NSWorkspace stays as the fallback, and on the
+    /// main thread, where waiting for Quick Look would block.
+    static func appIcon(_ source: URL, size: Int) -> CGImage? {
+        // Resolve symlinks first, or the alias arrow gets baked into the icon (e.g. /Applications/Safari.app).
+        let url = source.resolvingSymlinksInPath()
+        if !Thread.isMainThread, let icon = quickLookIcon(url, size: size) {
+            return draw(size: size) { ctx, rect in ctx.draw(icon, in: rect) }
+        }
+        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        return draw(size: size) { _, rect in icon.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1) }
+    }
+
+    private static func quickLookIcon(_ url: URL, size: Int) -> CGImage? {
+        let request = QLThumbnailGenerator.Request(fileAt: url, size: CGSize(width: size, height: size), scale: 1,
+                                                   representationTypes: .icon)
+        let done = DispatchSemaphore(value: 0)
+        var icon: CGImage?
+        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { representation, _ in
+            icon = representation?.cgImage
+            done.signal()
+        }
+        return done.wait(timeout: .now() + 5) == .success ? icon : nil
     }
 
     /// Rotates the icon's dominant hue onto the target color with an HSV color cube (hue shift plus a

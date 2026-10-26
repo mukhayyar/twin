@@ -97,11 +97,19 @@ final class CloneInsights: ObservableObject {
         guard let twinLib = try? Data(contentsOf: macOS.appendingPathComponent("libtwinisolate.dylib")) else {
             return .legacy
         }
-        // Compare the code, not the bytes: making a twin signs its copy again.
         guard let ours = Bundle.main.url(forResource: "libtwinisolate", withExtension: "dylib"),
               let current = try? Data(contentsOf: ours) else { return .current } // a dev build can't tell
-        let theirs = MachO.uuids(twinLib), latest = MachO.uuids(current)
-        return theirs.isEmpty || latest.isEmpty || theirs == latest ? .current : .older
+        return isolateVersion(twinLib) < isolateVersion(current) ? .older : .current
+    }
+
+    /// The TwinIsolateVersion compiled into libtwinisolate (see isolate.m). Comparing bytes
+    /// doesn't work: making a twin signs its copy again, and every build of the same source
+    /// differs. Libraries from before the marker are version 1.
+    nonisolated static func isolateVersion(_ library: Data) -> Int {
+        let marker = Data("TwinIsolateVersion=".utf8)
+        guard let range = library.range(of: marker) else { return 1 }
+        let digits = library[range.upperBound...].prefix { (48...57).contains($0) }
+        return Int(String(decoding: digits, as: UTF8.self)) ?? 1
     }
 
     nonisolated private static func preferenceCount(_ domain: String) -> Int? {

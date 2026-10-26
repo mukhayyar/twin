@@ -57,6 +57,10 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+// Bump whenever isolation changes, so Twin can tell which twins need re-creating
+// (Insights.swift reads it back). Twins made before this marker existed count as 1.
+__attribute__((used)) static const char twinIsolateVersion[] = "TwinIsolateVersion=1";
+
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 #define INTERPOSE(replacement, original)                                                     \

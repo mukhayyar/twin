@@ -97,9 +97,11 @@ final class CloneInsights: ObservableObject {
         guard let twinLib = try? Data(contentsOf: macOS.appendingPathComponent("libtwinisolate.dylib")) else {
             return .legacy
         }
+        // Compare the code, not the bytes: making a twin signs its copy again.
         guard let ours = Bundle.main.url(forResource: "libtwinisolate", withExtension: "dylib"),
               let current = try? Data(contentsOf: ours) else { return .current } // a dev build can't tell
-        return twinLib == current ? .current : .older
+        let theirs = MachO.uuids(twinLib), latest = MachO.uuids(current)
+        return theirs.isEmpty || latest.isEmpty || theirs == latest ? .current : .older
     }
 
     nonisolated private static func preferenceCount(_ domain: String) -> Int? {

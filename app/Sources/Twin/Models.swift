@@ -81,12 +81,16 @@ struct ClonePlan: Hashable {
     let icon: IconOptions
     /// Whether the twin gets its own hardware IDs (MAC, hardware UUID, serial).
     let ownHardware: Bool
+    /// Whether the twin starts with a copy of the original's data instead of a fresh profile.
+    let bringData: Bool
 
-    init(source: AppInfo, rawLabel: String, icon: IconOptions = IconOptions(), ownHardware: Bool = true) {
+    init(source: AppInfo, rawLabel: String, icon: IconOptions = IconOptions(), ownHardware: Bool = true,
+         bringData: Bool = false) {
         self.source = source
         self.label = CloneLabel.sanitize(rawLabel)
         self.icon = icon
         self.ownHardware = ownHardware
+        self.bringData = bringData
     }
 
     var color: UInt32 { IconPainter.color(for: label, options: icon) }

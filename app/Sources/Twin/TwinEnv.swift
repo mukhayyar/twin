@@ -19,7 +19,10 @@ enum TwinEnv {
     static var select: String? { value("TWIN_SELECT") }
     static var label: String? { value("TWIN_LABEL") }
     static var appearance: String? { value("TWIN_APPEARANCE")?.lowercased() }
-    /// Forces a UI state for README snapshots: `drop`, `success` or `empty`.
+    /// Installs an update as soon as a check finds one. Hidden testing hook.
+    static var autoInstallUpdate: Bool { env["TWIN_UPDATE_AUTOINSTALL"] == "1" }
+    /// Forces a UI state for README snapshots: `drop`, `success`, `empty`, `menubar`, `island`
+    /// (needs TWIN_DEMO) or `update`.
     static var snapshotState: String? { value("TWIN_SNAPSHOT_STATE")?.lowercased() }
 
     /// Simulates every clone step without touching the disk.

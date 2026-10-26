@@ -17,6 +17,8 @@ struct TwinApp: App {
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button("About Twin") { store.showAbout() }
+                Button("Check for Updates…") { Task { await Updater.shared.check(userInitiated: true) } }
+                Toggle("Show in Menu Bar", isOn: $store.showInMenuBar)
             }
             CommandGroup(replacing: .newItem) {
                 Button("Choose App…") { store.chooseApp() }
@@ -63,7 +65,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.activate(ignoringOtherApps: true)
-        Task { @MainActor in await Automation.run() }
+        Task { @MainActor in
+            MenuBarController.shared.setVisible(AppStore.shared.showInMenuBar)
+            TwinIsland.shared.start()
+            Updater.shared.checkInBackground()
+            await Automation.run()
+        }
+    }
+
+    /// Clicking the Dock icon with no window open brings the window back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        if !hasVisibleWindows { Task { @MainActor in AppStore.shared.showMainWindow() } }
+        return true
     }
 
     /// Apps dropped on the Dock icon or opened with "Open With → Twin".
@@ -72,5 +85,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in AppStore.shared.openApp(at: url) }
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+    /// With the menu bar icon, Twin stays running after its window closes.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        MainActor.assumeIsolated { !AppStore.shared.showInMenuBar }
+    }
 }

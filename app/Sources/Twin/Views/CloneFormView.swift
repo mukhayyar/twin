@@ -8,7 +8,8 @@ struct CloneFormView: View {
     @FocusState private var labelFocused: Bool
 
     private var plan: ClonePlan {
-        ClonePlan(source: app, rawLabel: store.label, icon: store.iconOptions, ownHardware: store.ownHardware)
+        ClonePlan(source: app, rawLabel: store.label, icon: store.iconOptions, ownHardware: store.ownHardware,
+                  bringData: store.bringData)
     }
     private var labelIsValid: Bool { CloneLabel.isValid(store.label) }
     private var duplicate: Bool { store.isDuplicate(plan) }
@@ -146,6 +147,20 @@ struct CloneFormView: View {
                     .padding(.leading, 20)
             }
             .help("Gives the twin its own MAC addresses, hardware UUID and serial number")
+
+            VStack(alignment: .leading, spacing: 3) {
+                Toggle("Copy data from \(app.name)", isOn: $store.bringData)
+                    .toggleStyle(.checkbox)
+                    .font(.callout)
+                Text(store.bringData
+                     ? "Starts with a copy of \(app.name)'s settings and data. Sign-ins kept in the keychain don't carry over."
+                     : "Starts with a fresh profile, as if \(app.name) were just installed.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 20)
+            }
+            .help("Copies the original's app data, preferences, cookies and sandbox container into the twin's profile")
         }
     }
 

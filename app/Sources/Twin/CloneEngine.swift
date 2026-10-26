@@ -15,24 +15,37 @@ enum StepStatus: Equatable {
 
 struct CloneStep: Identifiable, Equatable {
     let id: Int
-    let title: String
+    let kind: CloneEngine.Step
+    var title: String { kind.title }
     var status: StepStatus = .pending
     var duration: TimeInterval?
 }
 
-/// The six clone steps. Titles and behavior mirror the CLI; steps 3, 5 and 6 are best effort.
+/// The clone steps. Titles and behavior mirror the CLI.
 enum CloneEngine {
-    static let stepTitles = [
-        "Copy app bundle",
-        "Update bundle identifier",
-        "Paint icon & badge",
-        "Set up isolated profile",
-        "Clear quarantine & re-sign",
-        "Register with Launch Services",
-    ]
+    enum Step: CaseIterable {
+        case copyBundle, updateIdentity, paintIcon, setupProfile, copyData, resign, register
 
-    /// Failures in these steps abort the clone and remove the partial copy.
-    static let fatalSteps: Set<Int> = [0, 1, 3]
+        var title: String {
+            switch self {
+            case .copyBundle: return "Copy app bundle"
+            case .updateIdentity: return "Update bundle identifier"
+            case .paintIcon: return "Paint icon & badge"
+            case .setupProfile: return "Set up isolated profile"
+            case .copyData: return "Copy original's data"
+            case .resign: return "Clear quarantine & re-sign"
+            case .register: return "Register with Launch Services"
+            }
+        }
+
+        /// A failure here aborts the clone and removes the partial copy; the rest are best effort.
+        var isFatal: Bool { [.copyBundle, .updateIdentity, .setupProfile].contains(self) }
+    }
+
+    /// The steps for a plan: copying the original's data only when asked.
+    static func steps(for plan: ClonePlan) -> [Step] {
+        Step.allCases.filter { $0 != .copyData || plan.bringData }
+    }
 
     enum Outcome {
         case ok
@@ -42,7 +55,7 @@ enum CloneEngine {
 
     static let lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
-    static func perform(step: Int, plan: ClonePlan, replacing: Bool) -> Outcome {
+    static func perform(step: Step, plan: ClonePlan, replacing: Bool) -> Outcome {
         if TwinEnv.isDemo {
             Thread.sleep(forTimeInterval: .random(in: 0.6...0.9))
             return .ok
@@ -51,16 +64,18 @@ enum CloneEngine {
         let dest = plan.destination.path
         do {
             switch step {
-            case 0: try copyBundle(plan, replacing: replacing)
-            case 1: try updateIdentity(plan)
-            case 2: return paintIcon(plan)
-            case 3: try setupProfile(plan)
-            case 4: return bestEffort([
+            case .copyBundle: try copyBundle(plan, replacing: replacing)
+            case .updateIdentity: try updateIdentity(plan)
+            case .paintIcon: return paintIcon(plan)
+            case .setupProfile: try setupProfile(plan)
+            case .copyData:
+                let note = DataCopier.bringData(plan)
+                return note.isEmpty ? .ok : .warning(note)
+            case .resign: return bestEffort([
                     ["/usr/bin/xattr", "-cr", dest],
                     ["/usr/bin/codesign", "--force", "--deep", "--sign", "-", dest],
                 ])
-            case 5: return bestEffort([[lsregister, "-f", dest]])
-            default: break
+            case .register: return bestEffort([[lsregister, "-f", dest]])
             }
             return .ok
         } catch {
@@ -223,16 +238,19 @@ final class CloneJob: ObservableObject {
     init(plan: ClonePlan, icon: NSImage? = nil) {
         self.plan = plan
         self.icon = icon
-        self.steps = CloneEngine.stepTitles.enumerated().map { CloneStep(id: $0.offset, title: $0.element) }
+        self.steps = CloneEngine.steps(for: plan).enumerated().map { CloneStep(id: $0.offset, kind: $0.element) }
     }
 
     /// A finished job for screenshots; nothing runs.
     init(previewOf plan: ClonePlan, icon: NSImage?) {
         self.plan = plan
         self.icon = icon
-        let durations = [0.9, 0.1, 0.4, 0.1, 1.4, 0.3]
-        self.steps = CloneEngine.stepTitles.enumerated().map {
-            CloneStep(id: $0.offset, title: $0.element, status: .done, duration: durations[$0.offset])
+        let durations: [CloneEngine.Step: TimeInterval] = [
+            .copyBundle: 0.9, .updateIdentity: 0.1, .paintIcon: 0.4, .setupProfile: 0.1, .copyData: 0.6,
+            .resign: 1.4, .register: 0.3,
+        ]
+        self.steps = CloneEngine.steps(for: plan).enumerated().map {
+            CloneStep(id: $0.offset, kind: $0.element, status: .done, duration: durations[$0.element])
         }
         self.phase = .succeeded
     }
@@ -260,8 +278,9 @@ final class CloneJob: ObservableObject {
             for index in steps.indices {
                 steps[index].status = .running
                 let started = Date()
+                let kind = steps[index].kind
                 let outcome = await Task.detached(priority: .userInitiated) {
-                    CloneEngine.perform(step: index, plan: plan, replacing: replacing)
+                    CloneEngine.perform(step: kind, plan: plan, replacing: replacing)
                 }.value
                 steps[index].duration = Date().timeIntervalSince(started)
 
@@ -272,7 +291,7 @@ final class CloneJob: ObservableObject {
                     steps[index].status = .warning(message)
                 case .failure(let message):
                     steps[index].status = .failed(message)
-                    if CloneEngine.fatalSteps.contains(index) {
+                    if kind.isFatal {
                         await Task.detached { CloneEngine.rollback(plan) }.value
                     }
                     phase = .failed

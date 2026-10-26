@@ -30,6 +30,8 @@ jobs:
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # tags and history, for "What's new"
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
@@ -52,7 +54,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          sed "s/{{VERSION}}/${GITHUB_REF_NAME#v}/g" .github/release-notes.md > dist/notes.md
+          # "What's new" lists the commits since the previous tag; Twin.app's updater shows it.
+          prev=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          changes=$(git log --no-merges --pretty='- %s' "${prev:+$prev..}$GITHUB_REF_NAME")
+          CHANGES="$changes" awk '$0 == "{{CHANGES}}" { print ENVIRON["CHANGES"]; next } { print }' .github/release-notes.md |
+            sed "s/{{VERSION}}/${GITHUB_REF_NAME#v}/g" > dist/notes.md
           gh release create "$GITHUB_REF_NAME" \
             dist/*.dmg dist/*.zip dist/*.tar.gz dist/*.AppImage dist/*.exe dist/checksums.txt \
             --title "Twin $GITHUB_REF_NAME" --notes-file dist/notes.md --verify-tag

@@ -48,6 +48,30 @@ enum Automation {
             store.showPreviewSuccess()
         case "empty":
             store.selection = nil
+        case "menubar":
+            if let target { MenuBarController.shared.show(selecting: target) }
+            if let label = TwinEnv.label { QuickClone.shared.label = label }
+            await pause(1.2)
+            saveImage(of: MenuBarController.shared.popoverView)
+            NSApp.terminate(nil)
+            return
+        case "island":
+            guard TwinEnv.isDemo, let target else { break }
+            store.quickCreate(ClonePlan(source: target, rawLabel: TwinEnv.label ?? "Work", icon: store.iconOptions),
+                              replacing: false)
+            await pause(2.4)
+            saveImage(of: TwinIsland.shared.panelView, suffix: "-running")
+            while store.isCloning { await pause(0.05) }
+            await pause(1.0)
+            saveImage(of: TwinIsland.shared.panelView)
+            NSApp.terminate(nil)
+            return
+        case "update":
+            await Updater.shared.check(userInitiated: true)
+            await pause(1.0)
+            saveImage(of: UpdateWindow.contentView)
+            NSApp.terminate(nil)
+            return
         default:
             break
         }
@@ -102,6 +126,19 @@ enum Automation {
 
         while store.isCloning { await pause(0.05) }
         await pause(2.4)
+    }
+
+    /// Saves a window as the window server composites it (the popover, island and update
+    /// window), falling back to drawing the view.
+    private static func saveImage(of view: NSView?, suffix: String = "") {
+        guard let path = TwinEnv.snapshotPath else { return }
+        let out = URL(fileURLWithPath: (path as NSString).deletingPathExtension + suffix + ".png")
+        guard let view, let image = view.window.flatMap(WindowCapture.windowServerImage(of:)) ?? WindowCapture.image(of: view) else {
+            FileHandle.standardError.write(Data("snapshot failed: nothing drawn\n".utf8))
+            return
+        }
+        try? WindowCapture.writePNG(image, to: out)
+        print("snapshot: \(out.path)")
     }
 
     private static func pause(_ seconds: Double) async {

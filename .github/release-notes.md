@@ -2,6 +2,10 @@
 
 Clone an app into a twin with its own isolated profile (Work, Personal, Hobby), a recolored icon and a label badge.
 
+### What's new
+
+{{CHANGES}}
+
 ### Download
 
 | | File | |

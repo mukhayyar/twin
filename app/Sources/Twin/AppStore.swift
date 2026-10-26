@@ -53,6 +53,18 @@ final class AppStore: ObservableObject {
     /// Live preview of the twin's icon, rendered by the engine's own IconPainter.
     /// Give new twins their own hardware IDs (off: apps see this Mac's).
     @Published var ownHardware = true
+    /// Start new twins with a copy of the original's data (off: a fresh profile).
+    @Published var bringData = false
+    /// Twin's icon in the menu bar, for quick clones. While it's there, closing the window
+    /// leaves Twin running.
+    @Published var showInMenuBar = UserDefaults.standard.object(forKey: "TwinShowInMenuBar") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(showInMenuBar, forKey: "TwinShowInMenuBar")
+            MenuBarController.shared.setVisible(showInMenuBar)
+        }
+    }
+    /// Opens (or brings back) the main window; set by the window's content.
+    var openMainWindow: (() -> Void)?
     @Published private(set) var iconPreview: NSImage?
     @Published private(set) var iconPreviewSourceID: String?
     @Published var job: CloneJob?
@@ -100,7 +112,7 @@ final class AppStore: ObservableObject {
     }
 
     var currentPlan: ClonePlan? {
-        selectedApp.map { ClonePlan(source: $0, rawLabel: label, icon: iconOptions, ownHardware: ownHardware) }
+        selectedApp.map { ClonePlan(source: $0, rawLabel: label, icon: iconOptions, ownHardware: ownHardware, bringData: bringData) }
     }
     var isCloning: Bool { job?.phase == .running }
 
@@ -174,6 +186,19 @@ final class AppStore: ObservableObject {
         } else {
             start(plan, replacing: false)
         }
+    }
+
+    /// A clone started from the menu bar. The main window selects the app too, so it shows
+    /// the same progress.
+    func quickCreate(_ plan: ClonePlan, replacing: Bool) {
+        guard !isCloning else { return }
+        adopt(plan.source)
+        start(plan, replacing: replacing)
+    }
+
+    func showMainWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        openMainWindow?()
     }
 
     func confirmReplaceAndCreate() {

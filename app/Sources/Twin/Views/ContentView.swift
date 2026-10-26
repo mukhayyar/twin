@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.undoManager) private var undoManager
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         NavigationSplitView {
@@ -21,7 +22,11 @@ struct ContentView: View {
             }
         }
         .task { await store.reload() }
-        .onAppear { store.undoManager = undoManager }
+        .onAppear {
+            store.undoManager = undoManager
+            let open = openWindow
+            store.openMainWindow = { open(id: "main") }
+        }
         .onChange(of: undoManager) { _, manager in store.undoManager = manager }
     }
 }

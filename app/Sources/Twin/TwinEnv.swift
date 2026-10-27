@@ -22,7 +22,7 @@ enum TwinEnv {
     /// Installs an update as soon as a check finds one. Hidden testing hook.
     static var autoInstallUpdate: Bool { env["TWIN_UPDATE_AUTOINSTALL"] == "1" }
     /// Forces a UI state for README snapshots: `drop`, `success`, `empty`, `menubar`, `island`
-    /// (needs TWIN_DEMO) or `update`.
+    /// (needs TWIN_DEMO), `update` or `about`.
     static var snapshotState: String? { value("TWIN_SNAPSHOT_STATE")?.lowercased() }
 
     /// Simulates every clone step without touching the disk.

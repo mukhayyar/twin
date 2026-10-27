@@ -477,17 +477,6 @@ final class AppStore: ObservableObject {
         window.makeFirstResponder(field)
     }
 
-    func showAbout() {
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.alignment = .center
-        let credits = NSAttributedString(
-            string: "One app. Many lives.\nClone any Mac app with a profile of its own.",
-            attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: paragraph]
-        )
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "Twin", .credits: credits])
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
     private static func searchField(in view: NSView?) -> NSSearchField? {
         guard let view else { return nil }
         if let field = view as? NSSearchField { return field }

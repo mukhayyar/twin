@@ -73,6 +73,12 @@ enum Automation {
             saveImage(of: UpdateWindow.contentView)
             NSApp.terminate(nil)
             return
+        case "about":
+            AboutWindow.show()
+            await pause(2.0) // past the window's opening animation
+            saveImage(of: AboutWindow.contentView)
+            NSApp.terminate(nil)
+            return
         default:
             break
         }
@@ -129,8 +135,8 @@ enum Automation {
         await pause(2.4)
     }
 
-    /// Saves a window as the window server composites it (the popover, island and update
-    /// window), falling back to drawing the view.
+    /// Saves a window as the window server composites it (the popover, island, update
+    /// and About windows), falling back to drawing the view.
     private static func saveImage(of view: NSView?, suffix: String = "") {
         guard let path = TwinEnv.snapshotPath else { return }
         let out = URL(fileURLWithPath: (path as NSString).deletingPathExtension + suffix + ".png")

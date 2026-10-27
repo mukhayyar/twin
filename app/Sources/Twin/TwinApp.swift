@@ -16,7 +16,7 @@ struct TwinApp: App {
         .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
             CommandGroup(replacing: .appInfo) {
-                Button("About Twin") { store.showAbout() }
+                Button("About Twin") { AboutWindow.show() }
                 Button("Check for Updates…") { Task { await Updater.shared.check(userInitiated: true) } }
                 Toggle("Show in Menu Bar", isOn: $store.showInMenuBar)
             }

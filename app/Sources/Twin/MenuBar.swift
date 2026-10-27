@@ -144,6 +144,7 @@ struct QuickCloneView: View {
                 .buttonStyle(.borderless)
                 .help("Open the Twin window")
             Menu {
+                Button("About Twin") { AboutWindow.show() }
                 Button("Check for Updates…") { Task { await Updater.shared.check(userInitiated: true) } }
                 Button("Hide from Menu Bar") { store.showInMenuBar = false }
                 Divider()

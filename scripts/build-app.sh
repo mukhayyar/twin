@@ -60,7 +60,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
-  <key>NSHumanReadableCopyright</key><string>One app. Many lives.</string>
+  <key>NSHumanReadableCopyright</key><string>© 2026 Tsaqif Mukhayyar</string>
   <key>CFBundleDocumentTypes</key>
   <array>
     <dict>

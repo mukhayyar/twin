@@ -23,7 +23,7 @@ const (
 )
 
 // commands are the subcommands this platform has, by name.
-var commands map[string]func(args []string) error
+var commands map[string]func(args []string, yes bool) error
 
 // searchRoots returns the folders scanned for apps. TWIN_DIRS
 // (colon-separated) overrides the defaults.

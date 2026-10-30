@@ -196,7 +196,7 @@ twin -n                     try the whole flow without touching the disk
 | `--no-badge` | Keep the label off the icon |
 | `--share-hardware` | Let the twin see the computer's real hardware IDs instead of its own (macOS, Linux) |
 | `--copy-data` | Start the twin with a copy of the original's settings and data instead of a fresh profile |
-| `--display :N` | Run the twin on X display `:N`, such as an Xvnc desktop, with that desktop's D-Bus session (Linux) |
+| `--display :N` | Run the twin on X display `:N`, such as an Xvnc desktop, with that desktop's session, checking first that it opens (Linux) |
 | `--env KEY=VALUE` | Set a variable in the twin's launcher; repeatable (Linux) |
 | `--service` | Keep the twin's background server running with a systemd user service, for apps Twin knows, like RustDesk (Linux) |
 | `-u`, `--update` | Update twin to the latest release |
@@ -204,6 +204,7 @@ twin -n                     try the whole flow without touching the disk
 
 | Command | |
 |---|---|
+| `twin remove TWIN` | Stop a twin and delete its service, launcher, menu entry and profile. Asks first; `-y` doesn't (Linux) |
 | `twin rustdesk-password TWIN` | Set a RustDesk twin's permanent password, no root needed. It's read from a prompt or stdin, never the command line (Linux) |
 
 | Key | |
@@ -292,8 +293,8 @@ twin rustdesk-password RustDesk-Alice     # optional: give it a different perman
 
 - **Its own ID.** The twin sees its own machine-id and MAC addresses, so RustDesk gives it a new ID and key pair. Twin asks the twin's RustDesk for its ID before finishing, and refuses to finish one that answers to the original's.
 - **The same settings and password.** RustDesk encrypts its secrets with the machine-id, which the twin doesn't share. With `--copy-data`, Twin decrypts the permanent password, unlock PIN, proxy password and 2FA secret with this computer's key and encrypts them again for the twin. The original's ID, keys and trusted devices stay behind. Server settings and everything else come along.
-- **It stays up.** RustDesk's system service kills every process called `rustdesk --server` when it restarts its own. The twin runs under its own name, so the service leaves it alone. `--service` adds a systemd user service (`systemctl --user status twin-rustdesk-alice`) that starts it again if anything else stops it.
-- **The right screen.** `--display :3` runs it on that X display, with that desktop's D-Bus session, and tells RustDesk to use X11 there even when the main desktop runs Wayland.
+- **It stays up.** RustDesk's system service kills every process called `rustdesk --server` when it restarts its own. The twin runs under its own name, so the service leaves it alone. `--service` adds a systemd user service (`systemctl --user status twin-rustdesk-alice`) that starts it again if anything else stops it. User services start when you log in; Twin tells you the `sudo loginctl enable-linger` command if you want it running from boot.
+- **The right screen.** `--display :3` runs it on that X display and tells RustDesk to use X11 there, even when the main desktop runs Wayland. It uses that desktop's session: its D-Bus, and its X authority, or your `~/.Xauthority` when it has none. Before the app starts, Twin checks it can open the display. A wrong X authority stops it with the server's reason, which `journalctl --user -u twin-rustdesk-alice` shows, instead of leaving a server that can't see the screen. The twin's menu entry only shows on that desktop, since that's where it opens.
 
 When the twin's server starts, RustDesk's tray icon on the main desktop disappears: every RustDesk server closes all RustDesk tray icons when it starts. The icon comes back the next time RustDesk restarts its own server. Twins of RustDesk's flatpak aren't possible, since the flatpak sees the real hardware; use the `.deb`, `.rpm` or AppImage.
 
@@ -309,6 +310,8 @@ In the app, right-click it in the sidebar → **Move to Trash**. From the termin
 ```bash
 rm -rf "/Applications/Slack-Work.app" ~/.app_profiles/Slack-Work
 ```
+
+On Linux, `twin remove Slack-Work` stops the twin and its service and deletes its launcher, menu entry and profile. It asks first; `-y` doesn't.
 
 </details>
 

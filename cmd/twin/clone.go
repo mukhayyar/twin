@@ -108,6 +108,10 @@ const paintStep = "Paint icon & badge"
 // server running (Linux, --service).
 const serviceStep = "Keep server running"
 
+// displayStep checks that the twin can open the X display it's pointed at
+// (Linux, --display).
+const displayStep = "Check the display"
+
 // step is one stage of a clone. A returned error aborts the clone; a warning
 // is shown but the clone carries on.
 type step struct {

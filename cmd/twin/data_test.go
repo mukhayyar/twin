@@ -23,7 +23,7 @@ func TestPlanSteps(t *testing.T) {
 	if !slices.Contains(got, dataStep) || slices.Contains(got, serviceStep) {
 		t.Errorf("with BringData: %q", got)
 	}
-	all := titles(Plan{BringData: true, Service: true})
+	all := titles(Plan{BringData: true, Service: true, Session: session{Display: ":2"}})
 	if len(all) != len(steps) {
 		t.Errorf("with everything: %q, want all %d steps", all, len(steps))
 	}

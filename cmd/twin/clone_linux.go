@@ -1,11 +1,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
+	"io"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
@@ -24,6 +27,7 @@ var steps = []step{
 	{dataStep, bringData},
 	{paintStep, paintDesktopIcon},
 	{launcherStep, writeLauncher},
+	{displayStep, checkDisplay},
 	{"Refresh app menu", refreshMenu},
 	{serviceStep, keepServerRunning},
 }
@@ -304,6 +308,41 @@ func flatpakIsChromium(args []string) bool {
 	return false
 }
 
+// renamedPath is the link a renamed twin's launcher runs the app through.
+func renamedPath(id string) string { return filepath.Join(dataHome(), "twin", id+".run") }
+
+// renameProgram makes the link that runs the program under the twin's own
+// name, so tools that find the original's processes by their command line
+// don't match the twin's. The kernel still reports the real program as
+// /proc/self/exe, where the app finds its libraries.
+func renameProgram(id, program string) (string, error) {
+	path, err := exec.LookPath(program)
+	if err != nil {
+		return "", err
+	}
+	real, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", err
+	}
+	if f, err := os.Open(real); err == nil {
+		head := make([]byte, 2)
+		io.ReadFull(f, head)
+		f.Close()
+		if string(head) == "#!" {
+			return "", fmt.Errorf("%s is a script", real)
+		}
+	}
+	link := renamedPath(id)
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		return "", err
+	}
+	os.Remove(link)
+	if err := os.Symlink(real, link); err != nil {
+		return "", err
+	}
+	return link, nil
+}
+
 // keepServerRunning installs a systemd user service that runs the twin's
 // background server and starts it again whenever it stops, such as when the
 // original's own service restarts the servers it finds.
@@ -324,7 +363,60 @@ func keepServerRunning(p Plan) (string, error) {
 			return "", err
 		}
 	}
+	// Without lingering, user services start when the user logs in, not at
+	// boot. Turning it on needs root, so twin only says how.
+	if u, err := user.Current(); err == nil {
+		if linger, err := output("loginctl", "show-user", u.Username, "-p", "Linger", "--value"); err == nil && strings.TrimSpace(linger) == "no" {
+			return "it starts when " + u.Username + " logs in; to start it at boot instead, run: sudo loginctl enable-linger " + u.Username, nil
+		}
+	}
 	return "", nil
+}
+
+// checkDisplay runs the launcher in check-only mode: libtwinisolate opens
+// the display with the X authority the launcher found, as the twin will,
+// and the launcher prints the environment it would run the twin with. The
+// twin's menu entry then only shows on that display's desktop, since it
+// opens there.
+func checkDisplay(p Plan) (string, error) {
+	cmd := exec.Command(launcherPath(p.ID))
+	cmd.Env = append(os.Environ(), "TWIN_CHECK_ONLY=1")
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	lines := strings.Split(strings.TrimSpace(stderr.String()), "\n")
+	reason := strings.TrimPrefix(lines[len(lines)-1], "twin: ")
+	if exit := (*exec.ExitError)(nil); errors.As(err, &exit) && exit.ExitCode() == 3 {
+		return reason + "; the twin starts once it is", setDesktopKey(p.Dest, "NoDisplay", "true")
+	}
+	if err != nil {
+		if reason == "" {
+			reason = err.Error()
+		}
+		return "", errors.New(reason)
+	}
+	desktop := ""
+	for _, line := range strings.Split(string(out), "\n") {
+		if v, ok := strings.CutPrefix(line, "XDG_CURRENT_DESKTOP="); ok {
+			desktop = v
+		}
+	}
+	switch {
+	case desktop == "":
+		return "", setDesktopKey(p.Dest, "NoDisplay", "true")
+	case desktop != os.Getenv("XDG_CURRENT_DESKTOP"):
+		return "", setDesktopKey(p.Dest, "OnlyShowIn", strings.ReplaceAll(desktop, ":", ";")+";")
+	}
+	return "", nil
+}
+
+// setDesktopKey sets a key in a twin's .desktop file.
+func setDesktopKey(path, key, value string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(withDesktopKey(string(data), key, value)), 0o644)
 }
 
 // refreshMenu nudges menus that cache entries; most watch the folder anyway.

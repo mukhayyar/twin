@@ -15,11 +15,12 @@ import (
 const dataStep = "Copy original's data"
 
 // planSteps is the platform's step list for p, with its app's adapter steps,
-// and without the data and service steps unless p asks for them.
+// and without the data, display and service steps unless p asks for them.
 func planSteps(p Plan) []step {
 	var out []step
 	for _, s := range withAdapter(p, steps) {
-		if s.Title == dataStep && !p.BringData || s.Title == serviceStep && !p.Service {
+		if s.Title == dataStep && !p.BringData || s.Title == serviceStep && !p.Service ||
+			s.Title == displayStep && p.Session.Display == "" {
 			continue
 		}
 		out = append(out, s)

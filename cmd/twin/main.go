@@ -98,7 +98,7 @@ func main() {
 
 	if len(args) > 0 {
 		if command, ok := commands[args[0]]; ok {
-			if err := command(args[1:]); err != nil {
+			if err := command(args[1:], yes); err != nil {
 				fail(1, err)
 			}
 			return

@@ -145,9 +145,12 @@ func TestRekeyRustDeskConfig(t *testing.T) {
 		t.Fatalf("original ID = %q", id)
 	}
 
-	notes, err := rekeyRustDeskConfig(dir, keys, true)
+	moved, notes, err := rekeyRustDeskConfig(dir, keys, true)
 	if err != nil || len(notes) != 0 {
 		t.Fatalf("rekey: %v, notes %q", err, notes)
+	}
+	if want := "password unlock_pin [socks] password [options] 2fa RustDesk_ab peers (1)"; strings.Join(moved, " ") != want {
+		t.Errorf("moved = %q, want %q", moved, want)
 	}
 	one, _ := readTOML(filepath.Join(dir, "RustDesk.toml"))
 	two, _ := readTOML(filepath.Join(dir, "RustDesk2.toml"))
@@ -218,7 +221,7 @@ func TestRekeyRustDeskConfig(t *testing.T) {
 
 	// Doing it again changes nothing.
 	before, _ := os.ReadFile(filepath.Join(dir, "RustDesk2.toml"))
-	if _, err := rekeyRustDeskConfig(dir, keys, true); err != nil {
+	if _, _, err := rekeyRustDeskConfig(dir, keys, true); err != nil {
 		t.Fatal(err)
 	}
 	if again, _ := os.ReadFile(filepath.Join(dir, "RustDesk2.toml")); string(again) != string(before) {
@@ -230,7 +233,7 @@ func TestRekeyKeepsTwinsOwnID(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "RustDesk.toml"), "enc_id = '"+enc("299612344", twinKey, true)+"'\nkey_pair = [[1], [2]]\n")
 	keys := rustdeskKeys{From: []([32]byte){realKey}, To: twinKey}
-	if _, err := rekeyRustDeskConfig(dir, keys, false); err != nil {
+	if _, _, err := rekeyRustDeskConfig(dir, keys, false); err != nil {
 		t.Fatal(err)
 	}
 	if id := rustdeskID(dir, keys); id != "299612344" {
@@ -246,7 +249,7 @@ func TestRekeyRefusesUndecryptable(t *testing.T) {
 	write(t, filepath.Join(dir, "RustDesk2.toml"), pin)
 	before, _ := os.ReadFile(filepath.Join(dir, "RustDesk.toml"))
 
-	_, err := rekeyRustDeskConfig(dir, rustdeskKeys{From: []([32]byte){realKey}, To: twinKey}, true)
+	_, _, err := rekeyRustDeskConfig(dir, rustdeskKeys{From: []([32]byte){realKey}, To: twinKey}, true)
 	if err == nil || !strings.Contains(err.Error(), "RustDesk2.toml unlock_pin") {
 		t.Fatalf("err = %v, want one naming RustDesk2.toml unlock_pin", err)
 	}
@@ -261,7 +264,7 @@ func TestRekeyFallsBackToPublicKey(t *testing.T) {
 	pk := []byte("0123456789abcdef0123456789abcdef")
 	write(t, filepath.Join(dir, "RustDesk.toml"), "password = '"+enc("legacy-pw", rustdeskKey(pk), false)+"'\nkey_pair = [[7], "+byteArrayTOML(pk)+"]\n")
 	keys := rustdeskKeys{From: rustdeskOriginalKeys(dir, testMachineID), To: twinKey}
-	if _, err := rekeyRustDeskConfig(dir, keys, true); err != nil {
+	if _, _, err := rekeyRustDeskConfig(dir, keys, true); err != nil {
 		t.Fatal(err)
 	}
 	one, _ := readTOML(filepath.Join(dir, "RustDesk.toml"))

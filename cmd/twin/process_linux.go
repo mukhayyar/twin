@@ -1,13 +1,19 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
+
+	"golang.org/x/term"
 )
 
 // twinProcess is a running process a twin's launcher started.
@@ -80,4 +86,60 @@ func startDetached(name string, args ...string) error {
 		return err
 	}
 	return cmd.Process.Release()
+}
+
+// removeCommand removes a twin: it stops the twin and its service, then
+// deletes the service, launcher, menu entry, icon and profile. The original
+// app and its data aren't touched.
+func removeCommand(args []string, yes bool) error {
+	if len(args) != 1 {
+		return errors.New("usage: twin remove TWIN, e.g. twin remove Slack-Work (-y skips the question)")
+	}
+	p, _, err := findTwin(args[0])
+	if err != nil {
+		return err
+	}
+	// Only a profile in twin's own folder is deleted, whatever the entry says.
+	profile := p.Profile
+	if profile != "" && !within(profile, profilesRoot()) {
+		fmt.Printf("Keeping %s: it's outside %s.\n", tildify(profile), tildify(profilesRoot()))
+		profile = ""
+	}
+	if !yes {
+		if !term.IsTerminal(int(os.Stdin.Fd())) {
+			return errors.New("add -y to remove a twin without being asked")
+		}
+		what := ""
+		if profile != "" {
+			what = " and its profile " + tildify(profile) + " (its logins, settings and data)"
+		}
+		fmt.Printf("Remove %s%s? [y/N] ", p.Name, what)
+		answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		if a := strings.ToLower(strings.TrimSpace(answer)); a != "y" && a != "yes" {
+			fmt.Println("Kept it.")
+			return nil
+		}
+	}
+
+	if p.Service {
+		run("systemctl", "--user", "disable", "--now", serviceName(p.ID))
+		os.Remove(servicePath(p.ID))
+		run("systemctl", "--user", "daemon-reload")
+	}
+	stopProcesses(twinProcesses(p.Name))
+	for _, path := range []string{launcherPath(p.ID), renamedPath(p.ID), p.Dest, iconPath(p.ID)} {
+		os.Remove(path)
+	}
+	os.RemoveAll(twinRoot(os.Getuid(), p.Name))
+	if runtime := os.Getenv("XDG_RUNTIME_DIR"); runtime != "" {
+		os.RemoveAll(filepath.Join(runtime, "twin."+twinHash(p.Name)))
+	}
+	if profile != "" {
+		if err := os.RemoveAll(profile); err != nil {
+			return err
+		}
+	}
+	refreshMenu(p)
+	fmt.Printf("Removed %s.\n", p.Name)
+	return nil
 }

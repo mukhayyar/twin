@@ -100,16 +100,31 @@ func TestLauncherSession(t *testing.T) {
 	s := launcherScript("RustDesk", "/p", []string{"rustdesk"}, isolation{},
 		session{Display: ":3", Env: []string{"RUSTDESK_FORCED_DISPLAY_SERVER=x11", "A=it's"}})
 	for _, want := range []string{
-		"export DISPLAY=':3' XDG_SESSION_TYPE=x11\nunset WAYLAND_DISPLAY\n",
-		`grep -qzxF "DISPLAY=$DISPLAY" "$e" 2>/dev/null && ! grep -qz '^TWIN_NAME=' "$e" || continue`,
+		`export DISPLAY=':3' XDG_SESSION_TYPE=x11 XAUTHORITY="$HOME/.Xauthority" TWIN_CHECK_DISPLAY="${TWIN_CHECK_DISPLAY:-1}"` + "\nunset WAYLAND_DISPLAY\n",
+		`grep -qzxF "DISPLAY=$DISPLAY" "$e" 2>/dev/null && grep -qz '^DBUS_SESSION_BUS_ADDRESS=' "$e" && ! grep -qz '^TWIN_NAME=' "$e" || continue`,
+		"\txfce4-session|gnome-session*|ksmserver|",
+		"for v in DBUS_SESSION_BUS_ADDRESS XAUTHORITY XDG_CURRENT_DESKTOP; do",
 		"export RUSTDESK_FORCED_DISPLAY_SERVER='x11'\nexport A='it'\\''s'\nexport HOME=",
+		"[ -z \"${TWIN_CHECK_ONLY:-}\" ] || exec env\n",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("launcher missing %q:\n%s", want, s)
 		}
 	}
+	// The X authority comes from the user's home, never one inherited from
+	// another desktop, and is set before HOME moves to the profile.
+	if strings.Contains(s, "${XAUTHORITY:-") || strings.Index(s, `XAUTHORITY="$HOME/.Xauthority"`) > strings.Index(s, `export HOME="$P"`) {
+		t.Errorf("X authority handled wrongly:\n%s", s)
+	}
 	if strings.Contains(launcherScript("Slack", "/p", []string{"slack"}, isolation{}, session{}), "DISPLAY") {
 		t.Error("no display, no DISPLAY")
+	}
+}
+
+func TestWithDesktopKey(t *testing.T) {
+	entry := "[Desktop Entry]\nName=A\nOnlyShowIn=GNOME;\n"
+	if got := withDesktopKey(entry, "OnlyShowIn", "XFCE;"); got != "[Desktop Entry]\nName=A\nOnlyShowIn=XFCE;\n" {
+		t.Errorf("withDesktopKey = %q", got)
 	}
 }
 

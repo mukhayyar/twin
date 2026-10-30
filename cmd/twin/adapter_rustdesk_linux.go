@@ -29,7 +29,7 @@ var rustdeskAdapter = adapter{
 	Steps: []adapterStep{
 		{After: dataStep, step: step{"Move RustDesk's secrets to the twin", rekeyRustDesk},
 			When: func(p Plan) bool { return p.BringData }},
-		{After: launcherStep, step: step{"Check the twin's RustDesk ID", checkRustDeskID}},
+		{After: displayStep, step: step{"Check the twin's RustDesk ID", checkRustDeskID}},
 	},
 	Env: func(p Plan) []string {
 		if p.Session.Display == "" {
@@ -116,11 +116,30 @@ func rekeyRustDesk(p Plan) (string, error) {
 	origID := rustdeskID(orig, rustdeskKeys{From: rustdeskOriginalKeys(orig, real)})
 	own := rustdeskID(dir, rustdeskKeys{To: to})
 	keys := rustdeskKeys{From: rustdeskOriginalKeys(dir, real), To: to}
-	notes, err := rekeyRustDeskConfig(dir, keys, own == "" || own == origID)
+	strip := own == "" || own == origID
+	moved, notes, err := rekeyRustDeskConfig(dir, keys, strip)
 	if err != nil {
 		return "", fmt.Errorf("%w; left the twin's copy as it was", err)
 	}
+	s := rustdeskSummary(p.Name)
+	s.moved, s.newID = moved, strip
 	return strings.Join(notes, "; "), nil
+}
+
+// rustdeskDone is what the RustDesk steps found, for the twin's summary.
+type rustdeskDone struct {
+	id    string
+	moved []string
+	newID bool
+}
+
+var rustdeskDoneByTwin = map[string]*rustdeskDone{}
+
+func rustdeskSummary(name string) *rustdeskDone {
+	if rustdeskDoneByTwin[name] == nil {
+		rustdeskDoneByTwin[name] = &rustdeskDone{}
+	}
+	return rustdeskDoneByTwin[name]
 }
 
 // checkRustDeskID asks the twin for its RustDesk ID and refuses a twin that
@@ -149,6 +168,7 @@ func checkRustDeskID(p Plan) (string, error) {
 	} else if note != "" {
 		notes = append(notes, note)
 	}
+	rustdeskSummary(p.Name).id = id
 
 	if p.OwnHardware {
 		want, _ := rustdeskTwinKey(p)
@@ -188,12 +208,21 @@ func rustdeskPasswordKept(p Plan) error {
 var rustdeskIDPattern = regexp.MustCompile(`^[0-9A-Za-z._-]{1,64}$`)
 
 // getRustDeskID runs `program --get-id`. RustDesk asks its running server
-// and falls back to its config, making an ID if it has none.
+// and falls back to its config, making an ID if it has none. It needs no
+// display, so a twin's launcher doesn't check one.
 func getRustDeskID(program string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, program, "--get-id").Output()
+	cmd := exec.CommandContext(ctx, program, "--get-id")
+	cmd.Env = append(os.Environ(), "TWIN_CHECK_DISPLAY=0")
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
 	if err != nil {
+		if last := strings.TrimSpace(stderr.String()); last != "" {
+			lines := strings.Split(last, "\n")
+			return "", fmt.Errorf("%w: %s", err, lines[len(lines)-1])
+		}
 		return "", err
 	}
 	lines := strings.Fields(strings.TrimSpace(string(out)))
@@ -203,57 +232,32 @@ func getRustDeskID(program string) (string, error) {
 	return lines[len(lines)-1], nil
 }
 
+// rustdeskRows are the summary's RustDesk lines: the twin's ID as it
+// reported it, and which secrets (field names only) moved to its key.
 func rustdeskRows(p Plan) []string {
-	key, err := rustdeskTwinKey(p)
-	if err != nil {
-		return nil
+	s := rustdeskSummary(p.Name)
+	var rows []string
+	if s.id != "" {
+		rows = append(rows, "RustDesk ID", s.id)
 	}
-	if id := rustdeskID(rustdeskConfigDir(p.Profile), rustdeskKeys{To: key}); id != "" {
-		return []string{"RustDesk ID", id}
-	}
-	return nil
-}
-
-// renamedPath is the link a renamed twin's launcher runs the app through.
-func renamedPath(id string) string { return filepath.Join(dataHome(), "twin", id+".run") }
-
-// renameProgram makes the link that runs the program under the twin's own
-// name, so tools that find the original's processes by their command line
-// don't match the twin's. The kernel still reports the real program as
-// /proc/self/exe, where the app finds its libraries.
-func renameProgram(id, program string) (string, error) {
-	path, err := exec.LookPath(program)
-	if err != nil {
-		return "", err
-	}
-	real, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return "", err
-	}
-	if f, err := os.Open(real); err == nil {
-		head := make([]byte, 2)
-		io.ReadFull(f, head)
-		f.Close()
-		if string(head) == "#!" {
-			return "", fmt.Errorf("%s is a script", real)
+	if p.BringData {
+		moved := "no secrets to re-key"
+		if len(s.moved) > 0 {
+			moved = "re-keyed " + strings.Join(s.moved, ", ")
 		}
+		if s.newID {
+			moved += "; left the original's ID, keys and trusted devices behind"
+		}
+		rows = append(rows, "RustDesk data", moved)
 	}
-	link := renamedPath(id)
-	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
-		return "", err
-	}
-	os.Remove(link)
-	if err := os.Symlink(real, link); err != nil {
-		return "", err
-	}
-	return link, nil
+	return rows
 }
 
 // rustdeskPasswordCommand sets a RustDesk twin's permanent password without
 // root: it writes the twin's own config, encrypted with the twin's key. The
 // password comes from a prompt or stdin, never the command line, where
 // anyone on the computer could read it in the process list.
-func rustdeskPasswordCommand(args []string) error {
+func rustdeskPasswordCommand(args []string, _ bool) error {
 	if len(args) != 1 {
 		return errors.New("usage: twin rustdesk-password TWIN, e.g. twin rustdesk-password RustDesk-Work")
 	}

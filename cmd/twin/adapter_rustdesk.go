@@ -194,16 +194,24 @@ func rustdeskOriginalKeys(dir, machineID string) [][32]byte {
 // stripIdentity, the ID, key pair, the rendezvous server's confirmation of
 // them and the devices that trust the original don't, so the twin gets an
 // ID and keys of its own. Nothing is written unless every secret of the
-// twin's own decrypts; the error names the one that didn't.
-func rekeyRustDeskConfig(dir string, k rustdeskKeys, stripIdentity bool) (notes []string, err error) {
+// twin's own decrypts; the error names the one that didn't. moved lists the
+// secrets (field names only) that now open with the twin's key.
+func rekeyRustDeskConfig(dir string, k rustdeskKeys, stripIdentity bool) (moved, notes []string, err error) {
 	writes := map[string][]byte{}
 	var removes []string
+	field := func(doc *tomlDoc, table, key, file string, versions ...string) error {
+		had, err := rekeyField(doc, table, key, k, file, versions...)
+		if had {
+			moved = append(moved, fieldName(table, key))
+		}
+		return err
+	}
 
 	if doc, err := readTOML(filepath.Join(dir, "RustDesk.toml")); err != nil {
-		return nil, err
+		return nil, nil, err
 	} else if doc != nil {
-		if err := rekeyField(doc, "", "password", k, "RustDesk.toml", "00", "01"); err != nil {
-			return nil, err
+		if err := field(doc, "", "password", "RustDesk.toml", "00", "01"); err != nil {
+			return nil, nil, err
 		}
 		if stripIdentity {
 			for _, key := range []string{"id", "enc_id", "key_pair", "key_confirmed", "keys_confirmed"} {
@@ -215,16 +223,20 @@ func rekeyRustDeskConfig(dir string, k rustdeskKeys, stripIdentity bool) (notes 
 	}
 
 	if doc, err := readTOML(filepath.Join(dir, "RustDesk2.toml")); err != nil {
-		return nil, err
+		return nil, nil, err
 	} else if doc != nil {
 		for _, f := range [][2]string{{"", "unlock_pin"}, {"socks", "password"}} {
-			if err := rekeyField(doc, f[0], f[1], k, "RustDesk2.toml", "00"); err != nil {
-				return nil, err
+			if err := field(doc, f[0], f[1], "RustDesk2.toml", "00"); err != nil {
+				return nil, nil, err
 			}
 		}
 		for _, f := range [][2]string{{"2fa", "secret"}, {"bot", "token"}} {
-			if err := rekeyOptionJSON(doc, f[0], f[1], k); err != nil {
-				return nil, err
+			had, err := rekeyOptionJSON(doc, f[0], f[1], k)
+			if err != nil {
+				return nil, nil, err
+			}
+			if had {
+				moved = append(moved, fieldName("options", f[0]))
 			}
 		}
 		if stripIdentity {
@@ -244,6 +256,7 @@ func rekeyRustDeskConfig(dir string, k rustdeskKeys, stripIdentity bool) (notes 
 		}
 		if out, err := k.rekeyBox(box); err == nil {
 			writes[name] = out
+			moved = append(moved, name)
 		} else {
 			removes = append(removes, name)
 		}
@@ -252,7 +265,7 @@ func rekeyRustDeskConfig(dir string, k rustdeskKeys, stripIdentity bool) (notes 
 	// Logins saved for other computers. One that doesn't decrypt is asked
 	// for again on the next connection, so it doesn't stop the copy.
 	peers, _ := filepath.Glob(filepath.Join(dir, "peers", "*.toml"))
-	stale := 0
+	stale, logins := 0, 0
 	for _, path := range peers {
 		doc, err := readTOML(path)
 		if err != nil || doc == nil {
@@ -262,7 +275,11 @@ func rekeyRustDeskConfig(dir string, k rustdeskKeys, stripIdentity bool) (notes 
 		stale += failed
 		if changed {
 			writes[filepath.Join("peers", filepath.Base(path))] = []byte(doc.String())
+			logins++
 		}
+	}
+	if logins > 0 {
+		moved = append(moved, fmt.Sprintf("peers (%d)", logins))
 	}
 	if stale > 0 {
 		notes = append(notes, fmt.Sprintf("%d saved login(s) for other computers will ask for their password again", stale))
@@ -270,13 +287,13 @@ func rekeyRustDeskConfig(dir string, k rustdeskKeys, stripIdentity bool) (notes 
 
 	for name, data := range writes {
 		if err := writeSecretFile(filepath.Join(dir, name), data); err != nil {
-			return notes, err
+			return moved, notes, err
 		}
 	}
 	for _, name := range removes {
 		os.Remove(filepath.Join(dir, name))
 	}
-	return notes, nil
+	return moved, notes, nil
 }
 
 // readTOML reads a TOML file, or returns nil if it doesn't exist.
@@ -291,17 +308,18 @@ func readTOML(path string) (*tomlDoc, error) {
 	return parseTOML(string(data)), nil
 }
 
-func rekeyField(doc *tomlDoc, table, key string, k rustdeskKeys, file string, versions ...string) error {
+// rekeyField re-encrypts one field; had reports whether it held a secret.
+func rekeyField(doc *tomlDoc, table, key string, k rustdeskKeys, file string, versions ...string) (had bool, err error) {
 	v, ok := doc.get(table, key)
 	if !ok || v == "" {
-		return nil
+		return false, nil
 	}
 	out, err := k.rekeyString(v, versions...)
 	if err != nil {
-		return fmt.Errorf("%s %s: %w", file, fieldName(table, key), err)
+		return true, fmt.Errorf("%s %s: %w", file, fieldName(table, key), err)
 	}
 	doc.set(table, key, out)
-	return nil
+	return true, nil
 }
 
 func fieldName(table, key string) string {
@@ -313,24 +331,24 @@ func fieldName(table, key string) string {
 
 // rekeyOptionJSON re-encrypts a secret inside a JSON option, such as the
 // two-factor secret: {"secret": [bytes of "00…"], …}.
-func rekeyOptionJSON(doc *tomlDoc, option, field string, k rustdeskKeys) error {
+func rekeyOptionJSON(doc *tomlDoc, option, field string, k rustdeskKeys) (had bool, err error) {
 	v, ok := doc.get("options", option)
 	if !ok || v == "" {
-		return nil
+		return false, nil
 	}
 	var obj map[string]json.RawMessage
 	var secret []byte
-	if json.Unmarshal([]byte(v), &obj) != nil || obj[field] == nil || !unmarshalBytes(obj[field], &secret) {
-		return nil // not the shape RustDesk writes; leave it
+	if json.Unmarshal([]byte(v), &obj) != nil || obj[field] == nil || !unmarshalBytes(obj[field], &secret) || len(secret) == 0 {
+		return false, nil // not the shape RustDesk writes; leave it
 	}
 	out, err := k.rekeyString(string(secret), "00")
 	if err != nil {
-		return fmt.Errorf("RustDesk2.toml [options] %s: %w", option, err)
+		return true, fmt.Errorf("RustDesk2.toml [options] %s: %w", option, err)
 	}
 	obj[field] = marshalBytes([]byte(out))
 	data, _ := json.Marshal(obj)
 	doc.set("options", option, string(data))
-	return nil
+	return true, nil
 }
 
 // unmarshalBytes reads a JSON array of numbers, which is how serde writes

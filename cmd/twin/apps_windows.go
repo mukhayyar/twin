@@ -22,7 +22,7 @@ const (
 )
 
 // commands are the subcommands this platform has, by name.
-var commands map[string]func(args []string) error
+var commands map[string]func(args []string, yes bool) error
 
 func startMenuDirs() []string {
 	return []string{

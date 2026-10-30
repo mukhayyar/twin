@@ -14,8 +14,12 @@
 //                         addresses (getifaddrs, /sys/class/net/*/address) are
 //                         mixed with a per-twin salt. TWIN_HARDWARE=shared
 //                         turns this off.
+//   X display check       With TWIN_CHECK_DISPLAY=1, the first process of the
+//                         twin connects to $DISPLAY with $XAUTHORITY's cookie
+//                         before the app starts, and exits with the server's
+//                         reason if it can't (3: no X server, 4: refused).
 //
-// Environment: TWIN_ROOT, TWIN_NAME, TWIN_HARDWARE.
+// Environment: TWIN_ROOT, TWIN_NAME, TWIN_HARDWARE, TWIN_CHECK_DISPLAY.
 //
 // Build: gcc -shared -fPIC -O2 -Wall -o libtwinisolate.so isolate_linux.c -ldl
 
@@ -34,6 +38,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -283,9 +288,135 @@ static void prepareHardware(void) {
     closedir(d);
 }
 
+// ── X display check ────────────────────────────────────────────────────────
+
+// readCounted reads one counted string of an Xauthority entry: a big-endian
+// length, then the bytes. Longer strings than out holds are skipped.
+static int readCounted(FILE *f, unsigned char *out, size_t cap, size_t *len) {
+    int hi = fgetc(f), lo = fgetc(f);
+    if (hi == EOF || lo == EOF) return 0;
+    size_t n = (size_t)hi << 8 | (size_t)lo;
+    if (n > cap) {
+        *len = 0;
+        return fseek(f, (long)n, SEEK_CUR) == 0;
+    }
+    *len = n;
+    return fread(out, 1, n, f) == n;
+}
+
+// findCookie looks up the MIT-MAGIC-COOKIE-1 for local display number num
+// in an Xauthority file, the way Xlib does: this host's entries or wildcards.
+static int findCookie(const char *file, const char *num, unsigned char *cookie, size_t *cookieLen) {
+    REAL(fopen);
+    FILE *f = file && *file ? real_fopen(file, "r") : NULL;
+    if (!f) return 0;
+    char host[256] = "";
+    gethostname(host, sizeof host - 1);
+    unsigned char addr[256], number[32], name[64], data[256];
+    size_t al, nl, ml, dl;
+    int found = 0;
+    for (;;) {
+        int hi = fgetc(f), lo = fgetc(f);
+        if (hi == EOF || lo == EOF) break;
+        int family = hi << 8 | lo;
+        if (!readCounted(f, addr, sizeof addr, &al) || !readCounted(f, number, sizeof number, &nl) ||
+            !readCounted(f, name, sizeof name, &ml) || !readCounted(f, data, sizeof data, &dl))
+            break;
+        int local = family == 65535 || (family == 256 && al == strlen(host) && !memcmp(addr, host, al));
+        int display = nl == 0 || (nl == strlen(num) && !memcmp(number, num, nl));
+        if (local && display && ml == 18 && !memcmp(name, "MIT-MAGIC-COOKIE-1", 18) && dl <= 64) {
+            memcpy(cookie, data, dl);
+            *cookieLen = dl;
+            found = 1;
+            break;
+        }
+    }
+    fclose(f);
+    return found;
+}
+
+// connectX opens the local X server's socket, abstract or in /tmp/.X11-unix.
+static int connectX(const char *num) {
+    REAL(connect);
+    for (int abstract = 1; abstract >= 0; abstract--) {
+        int s = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+        if (s < 0) return -1;
+        struct sockaddr_un a = {.sun_family = AF_UNIX};
+        int n = snprintf(a.sun_path + abstract, sizeof a.sun_path - 1, "/tmp/.X11-unix/X%s", num);
+        socklen_t len = offsetof(struct sockaddr_un, sun_path) + abstract + n + !abstract;
+        if (real_connect(s, (struct sockaddr *)&a, len) == 0) return s;
+        close(s);
+    }
+    return -1;
+}
+
+static void put16(unsigned char *p, unsigned v) {
+    p[0] = v & 0xFF;
+    p[1] = v >> 8;
+}
+
+// checkDisplay makes sure the twin can open its X display before the app
+// starts: a wrong X authority otherwise leaves an app that runs but can't
+// draw, or a remote-desktop server that can't see the screen. It only
+// handles local displays (:N); others are left to the app.
+static void checkDisplay(void) {
+    const char *want = getenv("TWIN_CHECK_DISPLAY");
+    if (!want || strcmp(want, "1")) return;
+    unsetenv("TWIN_CHECK_DISPLAY"); // the app's own children don't check again
+    const char *display = getenv("DISPLAY"), *auth = getenv("XAUTHORITY");
+    if (!display) display = "";
+    const char *colon = strrchr(display, ':');
+    if (!colon || (colon != display && strncmp(display, "unix:", 5))) return;
+    char num[16];
+    snprintf(num, sizeof num, "%.*s", (int)strcspn(colon + 1, "."), colon + 1);
+    if (!*num) return;
+
+    int s = connectX(num);
+    if (s < 0) {
+        fprintf(stderr, "twin: can't open %s: no X server is running there\n", display);
+        _exit(3);
+    }
+    struct timeval tv = {5, 0};
+    setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
+    setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof tv);
+
+    // The connection setup request (X11 protocol, little-endian).
+    unsigned char cookie[64], req[12 + 20 + 64];
+    size_t cl = 0;
+    int have = findCookie(auth, num, cookie, &cl);
+    memset(req, 0, sizeof req);
+    req[0] = 'l';
+    put16(req + 2, 11);
+    size_t len = 12;
+    if (have) {
+        put16(req + 6, 18);
+        put16(req + 8, (unsigned)cl);
+        memcpy(req + 12, "MIT-MAGIC-COOKIE-1", 18);
+        memcpy(req + 12 + 20, cookie, cl);
+        len = 12 + 20 + ((cl + 3) & ~(size_t)3);
+    }
+    unsigned char reply[8 + 256];
+    ssize_t got = write(s, req, len) == (ssize_t)len ? read(s, reply, sizeof reply) : -1;
+    close(s);
+    if (got >= 1 && reply[0] == 1) return; // accepted
+
+    char reason[257] = "no answer";
+    if (got >= 8 && reply[0] == 0) {
+        size_t n = reply[1] < got - 8 ? reply[1] : (size_t)(got - 8);
+        snprintf(reason, sizeof reason, "%.*s", (int)n, (const char *)reply + 8);
+        while (n && (reason[n - 1] == '\n' || reason[n - 1] == ' ')) reason[--n] = '\0';
+    } else if (got >= 1 && reply[0] == 2) {
+        snprintf(reason, sizeof reason, "it asks for more than a cookie");
+    }
+    fprintf(stderr, "twin: can't open %s with %s: %s%s\n", display, auth && *auth ? auth : "no X authority", reason,
+            have ? "" : " (no cookie for this display there)");
+    _exit(4);
+}
+
 // ── setup ──────────────────────────────────────────────────────────────────
 
 __attribute__((constructor)) static void init(void) {
+    checkDisplay();
     const char *r = getenv("TWIN_ROOT"), *name = getenv("TWIN_NAME");
     if (!r || !*r || !name) return;
     snprintf(root, sizeof root, "%s", r);

@@ -198,8 +198,10 @@ type session struct {
 
 // launcherScript runs cmd with HOME and the XDG directories pointed at the
 // profile, and libtwinisolate preloaded for /tmp, runtime sockets and
-// hardware IDs. XAUTHORITY is pinned first: X11 looks for ~/.Xauthority
-// otherwise.
+// hardware IDs. XAUTHORITY is pinned first, while HOME is still the user's:
+// X11 looks for ~/.Xauthority otherwise. With TWIN_CHECK_ONLY set, it only
+// checks the display (see libtwinisolate) and prints the environment it
+// would run the app with.
 func launcherScript(appName, profile string, cmd []string, iso isolation, ses session) string {
 	quoted := make([]string, len(cmd))
 	for i, a := range cmd {
@@ -216,35 +218,55 @@ func launcherScript(appName, profile string, cmd []string, iso isolation, ses se
 export LD_PRELOAD=%s"${LD_PRELOAD:+:$LD_PRELOAD}"
 `, shellQuote(iso.Name), iso.Hash, iso.Hardware, shellQuote(iso.Lib))
 	}
+	auth := `export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"` + "\n"
+	if ses.Display != "" {
+		auth = "" // the display's own session decides
+	}
 	return fmt.Sprintf(`#!/bin/sh
 # Made by twin: runs %s with its own profile. Delete it along with the twin.
 P=%s
-export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"
-%sexport HOME="$P" %s
+%s%sexport HOME="$P" %s
 mkdir -p %s
-%sexec %s "$@"
-`, appName, shellQuote(profile), sessionScript(ses), strings.Join(env, " "), strings.Join(dirs, " "), preload, strings.Join(quoted, " "))
+%s[ -z "${TWIN_CHECK_ONLY:-}" ] || exec env
+exec %s "$@"
+`, appName, shellQuote(profile), auth, sessionScript(ses), strings.Join(env, " "), strings.Join(dirs, " "), preload, strings.Join(quoted, " "))
 }
 
-// sessionScript points the launcher at an X display and borrows the D-Bus
-// bus and X authority of the desktop session running there (found in the
-// environment of one of its processes that isn't a twin), so menus, tray
-// icons and notifications reach that desktop.
+// sessionScript points the launcher at an X display and the desktop
+// session running there: it takes D-Bus, X authority and desktop name from
+// the session's environment, so menus, tray icons and notifications reach
+// that desktop. Without its own X authority, the session uses the user's
+// ~/.Xauthority, never one inherited from another desktop (GNOME's Xwayland
+// cookie, say, which the display refuses). libtwinisolate then checks that
+// the display opens before the app starts, unless the caller passes
+// TWIN_CHECK_DISPLAY=0 for a command that doesn't need it.
+//
+// The session is its session manager if one runs there, else a panel or
+// window manager, else its oldest process. Twins never count, and for the
+// last, neither do processes started over SSH or by systemd.
 func sessionScript(ses session) string {
 	var b strings.Builder
 	if ses.Display != "" {
-		fmt.Fprintf(&b, `export DISPLAY=%s XDG_SESSION_TYPE=x11
+		fmt.Fprintf(&b, `export DISPLAY=%s XDG_SESSION_TYPE=x11 XAUTHORITY="$HOME/.Xauthority" TWIN_CHECK_DISPLAY="${TWIN_CHECK_DISPLAY:-1}"
 unset WAYLAND_DISPLAY
+session= rank=9 low=
 for e in /proc/[0-9]*/environ; do
-	grep -qzxF "DISPLAY=$DISPLAY" "$e" 2>/dev/null && ! grep -qz '^TWIN_NAME=' "$e" || continue
-	bus=$(grep -z '^DBUS_SESSION_BUS_ADDRESS=' "$e" | tr -d '\0')
-	[ -n "$bus" ] || continue
-	export "$bus"
-	auth=$(grep -z '^XAUTHORITY=' "$e" | tr -d '\0')
-	[ -n "$auth" ] && export "$auth"
-	break
+	grep -qzxF "DISPLAY=$DISPLAY" "$e" 2>/dev/null && grep -qz '^DBUS_SESSION_BUS_ADDRESS=' "$e" && ! grep -qz '^TWIN_NAME=' "$e" || continue
+	pid=${e#/proc/}; pid=${pid%%/environ}
+	case $(cat "/proc/$pid/comm" 2>/dev/null) in
+	%s) r=1 ;;
+	%s) r=2 ;;
+	*) ! grep -qzE '^(SSH_CONNECTION|INVOCATION_ID)=' "$e" || continue; r=3 ;;
+	esac
+	if [ "$r" -lt "$rank" ] || { [ "$r" -eq "$rank" ] && [ "$pid" -lt "$low" ]; }; then
+		session=$e rank=$r low=$pid
+	fi
 done
-`, shellQuote(ses.Display))
+for v in DBUS_SESSION_BUS_ADDRESS XAUTHORITY XDG_CURRENT_DESKTOP; do
+	kv=$([ -n "$session" ] && grep -z "^$v=" "$session" | tr -d '\0')
+	[ -z "$kv" ] || export "$kv"
+done
+`, shellQuote(ses.Display), strings.Join(sessionManagers, "|"), strings.Join(desktopShells, "|"))
 	}
 	for _, kv := range ses.Env {
 		k, v, _ := strings.Cut(kv, "=")
@@ -252,6 +274,15 @@ done
 	}
 	return b.String()
 }
+
+// sessionManagers and desktopShells are process names (as /proc/PID/comm
+// shows them, cut to 15 characters) that run a desktop session.
+var (
+	sessionManagers = []string{"xfce4-session", "gnome-session*", "ksmserver", "plasma_session", "startplasma-x11",
+		"mate-session", "cinnamon-sessio*", "lxsession", "lxqt-session", "budgie-desktop", "openbox-session", "startxfce4"}
+	desktopShells = []string{"xfce4-panel", "xfwm4", "xfdesktop", "plasmashell", "kwin_x11", "mate-panel", "marco",
+		"cinnamon", "lxpanel", "lxqt-panel", "openbox", "i3", "fluxbox", "icewm*", "awesome", "xmonad*", "gnome-shell"}
+)
 
 // serviceUnit is a systemd user service that runs a twin's launcher with
 // args and starts it again whenever it stops, without ever giving up.
@@ -320,6 +351,18 @@ func desktopTwin(name, comment, exec, icon, categories, source, profile string, 
 	line("X-Twin-Source", source)
 	line("X-Twin-Profile", profile)
 	return b.String()
+}
+
+// withDesktopKey sets key=value in a twin's .desktop entry, which only has
+// the [Desktop Entry] group.
+func withDesktopKey(entry, key, value string) string {
+	var out []string
+	for _, line := range strings.Split(strings.TrimRight(entry, "\n"), "\n") {
+		if !strings.HasPrefix(line, key+"=") {
+			out = append(out, line)
+		}
+	}
+	return strings.Join(append(out, key+"="+escapeDesktop(value)), "\n") + "\n"
 }
 
 // slugify makes a file-name-safe ID: lowercase letters, digits and dashes.

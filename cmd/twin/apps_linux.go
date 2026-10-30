@@ -20,12 +20,14 @@ const (
 	// sessionOptions: whether --display, --env and --service exist here.
 	sessionOptions = true
 	platformHelp   = `      --display :N    run the twin on X display :N (say, an Xvnc desktop), with
-                      that desktop's D-Bus session
+                      that desktop's session; it checks the display opens first
       --env KEY=VALUE set a variable in the twin's launcher; repeatable
       --service       keep the twin's background server running with a
                       systemd user service (for apps twin knows, like RustDesk)
 
 Commands:
+  twin remove TWIN    stop a twin and delete it: its service, launcher, menu
+                      entry and profile (asks first; -y doesn't)
   twin rustdesk-password TWIN
                       set a RustDesk twin's permanent password, read from
                       stdin or a prompt (never from the command line)
@@ -33,7 +35,8 @@ Commands:
 )
 
 // commands are the subcommands this platform has, by name.
-var commands = map[string]func(args []string) error{
+var commands = map[string]func(args []string, yes bool) error{
+	"remove":            removeCommand,
 	"rustdesk-password": rustdeskPasswordCommand,
 }
 
@@ -138,33 +141,44 @@ func appFromPath(raw string) (App, error) {
 	return a, nil
 }
 
-// twinPlan rebuilds the plan of an existing twin from its .desktop file and
-// launcher, for commands that change a twin after it was made.
-func twinPlan(name string) (Plan, error) {
+// findTwin finds an existing twin by name ("Slack-Work") from its .desktop
+// file.
+func findTwin(name string) (Plan, desktopEntry, error) {
 	id := "twin-" + slugify(name)
 	dest := filepath.Join(dataHome(), "applications", id+".desktop")
 	data, err := os.ReadFile(dest)
 	if err != nil {
-		return Plan{}, fmt.Errorf("no twin named %s (looked for %s)", name, tildify(dest))
+		return Plan{}, desktopEntry{}, fmt.Errorf("no twin named %s (looked for %s)", name, tildify(dest))
 	}
 	e := parseDesktop(string(data))
-	if e.TwinSource == "" || e.TwinProfile == "" {
-		return Plan{}, fmt.Errorf("%s wasn't made by twin", tildify(dest))
+	if e.TwinSource == "" {
+		return Plan{}, e, fmt.Errorf("%s wasn't made by twin", tildify(dest))
+	}
+	return Plan{Name: e.Name, Dest: dest, ID: id, Profile: e.TwinProfile, Exists: true, ExistingIsClone: true,
+		Service: fileExists(servicePath(id))}, e, nil
+}
+
+// twinPlan rebuilds the plan of an existing twin from its .desktop file and
+// launcher, for commands that change a twin after it was made.
+func twinPlan(name string) (Plan, error) {
+	p, e, err := findTwin(name)
+	if err != nil {
+		return Plan{}, err
+	}
+	if e.TwinProfile == "" {
+		return Plan{}, fmt.Errorf("%s has no profile folder; make it again with twin", p.Name)
 	}
 	src, _, ok := readDesktopApp(e.TwinSource)
 	if !ok {
-		return Plan{}, fmt.Errorf("%s was made from %s, which is gone", e.Name, tildify(e.TwinSource))
+		return Plan{}, fmt.Errorf("%s was made from %s, which is gone", p.Name, tildify(e.TwinSource))
 	}
-	launcher, err := os.ReadFile(launcherPath(id))
+	launcher, err := os.ReadFile(launcherPath(p.ID))
 	if err != nil {
-		return Plan{}, fmt.Errorf("%s has no launcher; make it again with twin", e.Name)
+		return Plan{}, fmt.Errorf("%s has no launcher; make it again with twin", p.Name)
 	}
-	return Plan{
-		Src: src, Name: e.Name, Label: strings.TrimPrefix(e.Name, src.Name+"-"),
-		Dest: dest, ID: id, Profile: e.TwinProfile, Exists: true, ExistingIsClone: true,
-		OwnHardware: !strings.Contains(string(launcher), "TWIN_HARDWARE=shared"),
-		Service:     fileExists(servicePath(id)),
-	}, nil
+	p.Src, p.Label = src, strings.TrimPrefix(p.Name, src.Name+"-")
+	p.OwnHardware = !strings.Contains(string(launcher), "TWIN_HARDWARE=shared")
+	return p, nil
 }
 
 func fileExists(path string) bool {

@@ -149,7 +149,7 @@ func TestRustDeskTwinEndToEnd(t *testing.T) {
 	w.Close()
 	stdin := os.Stdin
 	os.Stdin = r
-	err = rustdeskPasswordCommand([]string{p.Name})
+	err = rustdeskPasswordCommand([]string{p.Name}, false)
 	os.Stdin = stdin
 	if err != nil {
 		t.Fatal(err)

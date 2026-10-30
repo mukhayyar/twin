@@ -13,6 +13,7 @@ func runHeadless(p Plan, dryRun bool) error {
 	if p.Exists && !p.ExistingIsClone {
 		return fmt.Errorf("%s exists and wasn't made by twin; not replacing it", tildify(p.Dest))
 	}
+
 	head := gradientBadge(" ✦ twin ") + st.Muted.Render("  "+p.Src.Name+"  →  ") + st.Accent2.Render(p.Name)
 	if dryRun {
 		head += "  " + st.WarnBadge.Render("DRY RUN")
@@ -40,6 +41,8 @@ func runHeadless(p Plan, dryRun bool) error {
 			lipgloss.Println(st.Success.Render("✓ ") + st.Text.Render(s.Title) + took)
 		}
 	}
-	lipgloss.Println("\n" + rows(append(append(append(previewRows(p), "Icon", iconRow(p, iconKept)), hardwareRow(p, false)...), dataRow(p, false)...)...))
+	summary := append(append(previewRows(p), "Icon", iconRow(p, iconKept)), hardwareRow(p, false)...)
+	summary = append(append(summary, dataRow(p, false)...), adapterRows(p)...)
+	lipgloss.Println("\n" + rows(summary...))
 	return nil
 }

@@ -23,11 +23,31 @@ var steps = []step{
 	{"Create profile folder", makeProfile},
 	{dataStep, bringData},
 	{paintStep, paintDesktopIcon},
-	{"Write launcher", writeLauncher},
+	{launcherStep, writeLauncher},
 	{"Refresh app menu", refreshMenu},
+	{serviceStep, keepServerRunning},
 }
 
+const launcherStep = "Write launcher"
+
+// adapters cover apps that need more than the generic isolation.
+var adapters = []adapter{rustdeskAdapter}
+
 func launcherPath(id string) string { return filepath.Join(dataHome(), "twin", id+".sh") }
+
+func configHome() string {
+	if v := os.Getenv("XDG_CONFIG_HOME"); v != "" {
+		return v
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".config")
+}
+
+func serviceName(id string) string { return id + ".service" }
+
+func servicePath(id string) string {
+	return filepath.Join(configHome(), "systemd", "user", serviceName(id))
+}
 
 // isolateLibPath is where the embedded libtwinisolate.so is written; every
 // twin preloads the same copy.
@@ -48,14 +68,29 @@ func isTwin(dest string) bool {
 }
 
 func previewRows(p Plan) []string {
-	return []string{"Launcher", tildify(p.Dest), "Profile", tildify(p.Profile)}
+	rows := []string{"Launcher", tildify(p.Dest), "Profile", tildify(p.Profile)}
+	if p.Session.Display != "" {
+		rows = append(rows, "Display", p.Session.Display)
+	}
+	if p.Service {
+		rows = append(rows, "Service", serviceName(p.ID)+" (systemd, user)")
+	}
+	return rows
 }
 
-// cleanup removes a half-built twin after a failed step. The profile stays.
+// cleanup removes a half-built twin after a failed step, including a service
+// left from an earlier version of it, which would run a missing launcher.
+// The profile stays.
 func cleanup(p Plan) {
 	os.Remove(p.Dest)
 	os.Remove(launcherPath(p.ID))
+	os.Remove(renamedPath(p.ID))
 	os.Remove(iconPath(p.ID))
+	if _, err := os.Stat(servicePath(p.ID)); err == nil {
+		run("systemctl", "--user", "disable", "--now", serviceName(p.ID))
+		os.Remove(servicePath(p.ID))
+		run("systemctl", "--user", "daemon-reload")
+	}
 }
 
 func openTwin(p Plan) error {
@@ -69,6 +104,9 @@ func openTwin(p Plan) error {
 }
 
 func makeProfile(p Plan) (string, error) {
+	if err := planError(p); err != nil {
+		return "", err
+	}
 	if isSnap(p.Src.Exec) {
 		return "", fmt.Errorf("%s is a snap: snapd decides where snaps keep their data, so it can't get a separate profile", p.Src.Name)
 	}
@@ -180,7 +218,7 @@ func loadIcon(path string) (image.Image, error) {
 	return img, nil
 }
 
-func writeLauncher(p Plan) (string, error) {
+func writeLauncher(p Plan) (warning string, err error) {
 	data, err := os.ReadFile(p.Src.Path)
 	if err != nil {
 		return "", err
@@ -189,6 +227,11 @@ func writeLauncher(p Plan) (string, error) {
 	args := execArgs(src.Exec)
 	if len(args) == 0 {
 		return "", fmt.Errorf("%s has an empty Exec line", filepath.Base(p.Src.Path))
+	}
+
+	ses := p.Session
+	if a := adapterFor(p.Src); a != nil && a.Env != nil {
+		ses.Env = append(a.Env(p), ses.Env...) // the user's --env comes last and wins
 	}
 
 	var command []string
@@ -203,6 +246,14 @@ func writeLauncher(p Plan) (string, error) {
 		if exe, err := exec.LookPath(cmd[0]); err == nil {
 			if real, err := filepath.EvalSymlinks(exe); err == nil && isChromiumDir(filepath.Dir(real)) {
 				cmd = append(cmd, "--password-store=basic")
+			}
+		}
+		if a := adapterFor(p.Src); a != nil && a.Rename {
+			link, err := renameProgram(p.ID, cmd[0])
+			if err != nil {
+				warning = "couldn't run it under the twin's own name (" + err.Error() + "); " + a.Name + "'s own service may stop it"
+			} else {
+				cmd[0] = link
 			}
 		}
 		iso := isolation{Name: p.Name, Hash: twinHash(p.Name), Hardware: "separate"}
@@ -222,7 +273,7 @@ func writeLauncher(p Plan) (string, error) {
 		if err := os.MkdirAll(filepath.Dir(script), 0o755); err != nil {
 			return "", err
 		}
-		if err := os.WriteFile(script, []byte(launcherScript(p.Src.Name, p.Profile, cmd, iso)), 0o755); err != nil {
+		if err := os.WriteFile(script, []byte(launcherScript(p.Src.Name, p.Profile, cmd, iso, ses)), 0o755); err != nil {
 			return "", err
 		}
 		command = append([]string{script}, codes...)
@@ -237,7 +288,7 @@ func writeLauncher(p Plan) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(p.Dest), 0o755); err != nil {
 		return "", err
 	}
-	return "", os.WriteFile(p.Dest, []byte(entry), 0o644)
+	return warning, os.WriteFile(p.Dest, []byte(entry), 0o644)
 }
 
 // flatpakIsChromium reports whether a `flatpak run` app is built on the
@@ -251,6 +302,29 @@ func flatpakIsChromium(args []string) bool {
 		return err == nil && (strings.Contains(meta, "org.electronjs.Electron2.BaseApp") || strings.Contains(meta, "org.chromium.Chromium.BaseApp"))
 	}
 	return false
+}
+
+// keepServerRunning installs a systemd user service that runs the twin's
+// background server and starts it again whenever it stops, such as when the
+// original's own service restarts the servers it finds.
+func keepServerRunning(p Plan) (string, error) {
+	a := adapterFor(p.Src)
+	if a == nil || a.Server == nil {
+		return "", fmt.Errorf("twin doesn't know how to run %s in the background", p.Src.Name)
+	}
+	path := servicePath(p.ID)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(path, []byte(serviceUnit(p.Name, p.Src.Name, launcherPath(p.ID), a.Server)), 0o644); err != nil {
+		return "", err
+	}
+	for _, args := range [][]string{{"daemon-reload"}, {"enable", serviceName(p.ID)}, {"restart", serviceName(p.ID)}} {
+		if err := run("systemctl", append([]string{"--user"}, args...)...); err != nil {
+			return "", err
+		}
+	}
+	return "", nil
 }
 
 // refreshMenu nudges menus that cache entries; most watch the folder anyway.

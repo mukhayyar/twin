@@ -42,7 +42,7 @@ Twin makes a full copy of the app that **believes it's on its own machine**. Eac
 | 🖥️ **Hardware fingerprint** | MAC addresses, hardware UUID and serial number |
 
 > [!IMPORTANT]
-> **Twins also change the hardware fingerprint, unless you turn it off.** By default each twin sees its own stable MAC addresses, hardware UUID and serial number, so apps that identify a machine by its hardware treat it as a separate device. That's what gives a RustDesk twin its own ID. For apps licensed per device, untick **Own hardware ID** in the app (or pass `--share-hardware` to the CLI) and the twin sees this Mac's real hardware instead. Everything else stays separate either way.
+> **Twins also change the hardware fingerprint, unless you turn it off.** By default each twin sees its own stable MAC addresses, hardware UUID and serial number, so apps that identify a machine by its hardware treat it as a separate device. That's what gives a RustDesk twin its own ID. For apps licensed per device, untick **Own hardware ID** in the app (or pass `--share-hardware` to the CLI, on macOS or Linux) and the twin sees the computer's real hardware instead. Everything else stays separate either way.
 
 <div align="center">
 <a href="assets/twin-promo.mp4"><img src="assets/twin-preview.gif" width="860" alt="Twin in action: drop Discord in and clone it as Work, then drop Zoom on the notch, name it in the menu bar and watch it clone"></a>
@@ -146,7 +146,7 @@ Update the CLI any time with `twin --update` (or `brew upgrade twin`).
 
 The CLI runs there too. On Linux, download **`twin-x.y.z-x86_64.AppImage`** (or `-aarch64`), `chmod +x` it and run it; Homebrew and the installer above work as well. On Windows, download **`twin-x.y.z-windows-amd64.exe`** and run it in a terminal.
 
-- **Linux:** a twin is a new app-menu entry with its own profile: files and settings (HOME and XDG folders), `/tmp`, app sockets and hardware fingerprint are all kept apart. Chromium and Electron apps keep their saved passwords inside the twin's profile instead of the shared desktop keyring; other apps' keyring entries stay shared. Flatpak apps work; Snap apps can't be twinned.
+- **Linux:** a twin is a new app-menu entry with its own profile: files and settings (HOME and XDG folders), `/tmp`, app sockets and hardware fingerprint are all kept apart. Chromium and Electron apps keep their saved passwords inside the twin's profile instead of the shared desktop keyring; other apps' keyring entries stay shared. Flatpak apps work; Snap apps can't be twinned. RustDesk gets extra care: see [the FAQ](#faq).
 - **Windows (experimental):** a twin is a Start Menu shortcut that runs the app with its own user folders. Apps that only allow one running copy won't open twice.
 
 ## Usage
@@ -194,10 +194,17 @@ twin -n                     try the whole flow without touching the disk
 | `-n`, `--dry-run` | Walk through everything without changing the disk |
 | `-c`, `--color` | `auto` (default), `none`, a name (`blue` `green` `orange` `purple` `pink` `teal` `indigo` `yellow` `red` `mint` `brown` `cyan`) or `#RRGGBB` |
 | `--no-badge` | Keep the label off the icon |
-| `--share-hardware` | Let the twin see this Mac's real hardware IDs instead of its own (macOS) |
+| `--share-hardware` | Let the twin see the computer's real hardware IDs instead of its own (macOS, Linux) |
 | `--copy-data` | Start the twin with a copy of the original's settings and data instead of a fresh profile |
+| `--display :N` | Run the twin on X display `:N`, such as an Xvnc desktop, with that desktop's D-Bus session (Linux) |
+| `--env KEY=VALUE` | Set a variable in the twin's launcher; repeatable (Linux) |
+| `--service` | Keep the twin's background server running with a systemd user service, for apps Twin knows, like RustDesk (Linux) |
 | `-u`, `--update` | Update twin to the latest release |
 | `-v`, `--version` | Print the version |
+
+| Command | |
+|---|---|
+| `twin rustdesk-password TWIN` | Set a RustDesk twin's permanent password, no root needed. It's read from a prompt or stdin, never the command line (Linux) |
 
 | Key | |
 |---|---|
@@ -267,7 +274,28 @@ Twins are independent copies, so they keep their version. Re-create the twin wit
 
 Yes: tick **Copy data from …** (or pass `--copy-data`). Twin copies the original's app data, preferences, cookies and sandbox container into the new twin's profile, skipping caches. On macOS the copies are APFS clones, so even gigabytes copy instantly and take no extra space until they change. It never overwrites data a twin already has.
 
-Two things don't come along: sign-ins kept in the keychain (each twin has its own keychain items, so some apps ask you to sign in again), and anything the app keeps on a server. Copying also brings over any device identity the app stores in its settings, so leave it off for apps like RustDesk where each copy should be a different device. Quit the original first for the cleanest copy.
+Two things don't come along: sign-ins kept in the keychain (each twin has its own keychain items, so some apps ask you to sign in again), and anything the app keeps on a server. Copying also brings over any device identity the app stores in its settings, so on macOS leave it off for apps like RustDesk where each copy should be a different device. On Linux, Twin knows RustDesk and handles it (see below). Quit the original first for the cleanest copy.
+
+</details>
+
+<details>
+<summary><b>Can I run a second RustDesk on the same Linux computer?</b></summary>
+
+<br>
+
+Yes, on its own ID, for example on a second desktop served by Xvnc on display `:3`:
+
+```bash
+twin -y --copy-data RustDesk Alice --display :3 --service
+twin rustdesk-password RustDesk-Alice     # optional: give it a different permanent password
+```
+
+- **Its own ID.** The twin sees its own machine-id and MAC addresses, so RustDesk gives it a new ID and key pair. Twin asks the twin's RustDesk for its ID before finishing, and refuses to finish one that answers to the original's.
+- **The same settings and password.** RustDesk encrypts its secrets with the machine-id, which the twin doesn't share. With `--copy-data`, Twin decrypts the permanent password, unlock PIN, proxy password and 2FA secret with this computer's key and encrypts them again for the twin. The original's ID, keys and trusted devices stay behind. Server settings and everything else come along.
+- **It stays up.** RustDesk's system service kills every process called `rustdesk --server` when it restarts its own. The twin runs under its own name, so the service leaves it alone. `--service` adds a systemd user service (`systemctl --user status twin-rustdesk-alice`) that starts it again if anything else stops it.
+- **The right screen.** `--display :3` runs it on that X display, with that desktop's D-Bus session, and tells RustDesk to use X11 there even when the main desktop runs Wayland.
+
+When the twin's server starts, RustDesk's tray icon on the main desktop disappears: every RustDesk server closes all RustDesk tray icons when it starts. The icon comes back the next time RustDesk restarts its own server. Twins of RustDesk's flatpak aren't possible, since the flatpak sees the real hardware; use the `.deb`, `.rpm` or AppImage.
 
 </details>
 
@@ -315,6 +343,7 @@ scripts/build-app.sh && open dist/Twin.app   # the app (Xcode or Command Line To
 - [x] Optionally start a twin with a copy of the original's data
 - [x] One-file downloads (`.dmg`, AppImage, `.exe`) and built-in updates
 - [x] Menu bar quick clone and the notch island
+- [x] RustDesk twins on Linux: their own ID with the same settings and password, on any display, kept running
 - [ ] Twin.app icon in the new macOS 26 format
 
 ## Credits

@@ -3,7 +3,9 @@
 // launcher loads it with LD_PRELOAD; it's a no-op without TWIN_ROOT.
 //
 //   /tmp, /var/tmp        Fixed paths there move under TWIN_ROOT, a per-twin
-//                         folder. X11's /tmp/.X* sockets and locks stay shared.
+//                         folder. X11's /tmp/.X* sockets and locks, and the
+//                         D-Bus session buses some desktops keep in
+//                         /tmp/dbus-*, stay shared.
 //   $XDG_RUNTIME_DIR      App sockets there (single-instance locks, Discord's
 //                         IPC…) move to a per-twin subfolder. Desktop services
 //                         (Wayland, D-Bus, PulseAudio, PipeWire…) stay shared,
@@ -25,6 +27,7 @@
 #include <limits.h>
 #include <netpacket/packet.h>
 #include <stdarg.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,10 +64,15 @@ static int runtimeIsShared(const char *name) {
 }
 
 // remap returns path rewritten into buf, or path itself when no rule applies.
-static const char *remap(const char *path, char *buf, size_t n) {
+// noipa keeps its NULL check: glibc declares paths such as statx's as never
+// NULL, so a copy inlined into the hooks would drop it, and Rust programs,
+// which probe statx with a NULL path, would crash.
+__attribute__((noipa)) static const char *remap(const char *path, char *buf, size_t n) {
     if (!active || !path || path[0] != '/') return path;
     if (under(path, root) || (*self_ && under(path, self_))) return path;
-    if (strncmp(path, "/tmp/.X", 7) == 0 || strncmp(path, "/tmp/.ICE-unix", 14) == 0) return path;
+    if (strncmp(path, "/tmp/.X", 7) == 0 || strncmp(path, "/tmp/.ICE-unix", 14) == 0 ||
+        strncmp(path, "/tmp/dbus-", 10) == 0)
+        return path;
 
     if (under(path, "/tmp")) {
         snprintf(buf, n, "%s%s", root, path + 4);

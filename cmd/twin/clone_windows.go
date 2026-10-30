@@ -10,6 +10,9 @@ import (
 	xdraw "golang.org/x/image/draw"
 )
 
+// adapters cover apps that need more than the generic isolation; none here.
+var adapters []adapter
+
 // A Windows twin is a Start Menu shortcut that starts the app with the user
 // folders pointed at the profile, plus a repainted icon.
 var steps = []step{

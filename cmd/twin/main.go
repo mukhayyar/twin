@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 	"runtime/debug"
 	"strings"
 
@@ -37,13 +38,14 @@ Flags:
                              yellow red mint brown cyan
       --no-badge      don't draw the label on the twin's icon
       --share-hardware
-                      let the twin see this Mac's real hardware IDs instead of
-                      its own (for apps licensed per device; macOS)
+                      let the twin see this computer's real hardware IDs
+                      instead of its own (for apps licensed per device;
+                      macOS and Linux)
       --copy-data     start the twin with a copy of the original's settings
                       and data instead of a fresh profile
   -u, --update        update twin to the latest release
   -v, --version       print the version
-
+` + platformHelp + `
 Environment:
   TWIN_DIRS       folders to scan, as a path list
                   ` + dirsHelp + `
@@ -52,8 +54,9 @@ Tip: ` + strings.ToLower(dropHint[:1]) + dropHint[1:] + `
 `
 
 func main() {
-	var yes, dryRun, showVersion, noBadge, shareHardware, copyData, update bool
-	var color string
+	var yes, dryRun, showVersion, noBadge, shareHardware, copyData, update, service bool
+	var color, display string
+	var env envFlag
 	flag.BoolVar(&yes, "yes", false, "")
 	flag.BoolVar(&yes, "y", false, "")
 	flag.BoolVar(&dryRun, "dry-run", false, "")
@@ -63,6 +66,9 @@ func main() {
 	flag.BoolVar(&noBadge, "no-badge", false, "")
 	flag.BoolVar(&shareHardware, "share-hardware", false, "")
 	flag.BoolVar(&copyData, "copy-data", false, "")
+	flag.StringVar(&display, "display", "", "")
+	flag.Var(&env, "env", "")
+	flag.BoolVar(&service, "service", false, "")
 	flag.BoolVar(&update, "update", false, "")
 	flag.BoolVar(&update, "u", false, "")
 	flag.BoolVar(&showVersion, "version", false, "")
@@ -90,9 +96,25 @@ func main() {
 		return
 	}
 
+	if len(args) > 0 {
+		if command, ok := commands[args[0]]; ok {
+			if err := command(args[1:]); err != nil {
+				fail(1, err)
+			}
+			return
+		}
+	}
+
 	style, err := parseOptions(color, noBadge, shareHardware, copyData)
 	if err != nil {
 		fail(2, err)
+	}
+	if style.Session, err = parseSession(display, env); err != nil {
+		fail(2, err)
+	}
+	style.Service = service
+	if (style.Session.Display != "" || len(style.Session.Env) > 0 || service) && !sessionOptions {
+		fail(2, fmt.Errorf("--display, --env and --service are for Linux twins"))
 	}
 	if yes && len(args) == 0 {
 		fail(2, fmt.Errorf("--yes needs an app, e.g. twin -y Slack Work"))
@@ -128,6 +150,34 @@ func main() {
 	if _, err := tea.NewProgram(m).Run(); err != nil {
 		fail(1, err)
 	}
+}
+
+// envFlag collects repeated --env KEY=VALUE flags.
+type envFlag []string
+
+func (e *envFlag) String() string { return strings.Join(*e, " ") }
+
+func (e *envFlag) Set(v string) error {
+	*e = append(*e, v)
+	return nil
+}
+
+var (
+	displayName = regexp.MustCompile(`^:[0-9]+(\.[0-9]+)?$`)
+	envName     = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+)
+
+// parseSession checks --display and --env.
+func parseSession(display string, env []string) (session, error) {
+	if display != "" && !displayName.MatchString(display) {
+		return session{}, fmt.Errorf("--display wants an X display like :3, not %q", display)
+	}
+	for _, kv := range env {
+		if k, _, ok := strings.Cut(kv, "="); !ok || !envName.MatchString(k) {
+			return session{}, fmt.Errorf("--env wants KEY=VALUE, not %q", kv)
+		}
+	}
+	return session{Display: display, Env: env}, nil
 }
 
 func fail(code int, err error) {

@@ -15,7 +15,14 @@ const (
 	dropHint       = "Pick from the list, or drag a shortcut or .exe into this window."
 	dirsHelp       = "(default: the Start Menu folders)"
 	pathExample    = `C:\Tools\Foo.lnk`
+	sharedHardware = ""
+	// sessionOptions: whether --display, --env and --service exist here.
+	sessionOptions = false
+	platformHelp   = ""
 )
+
+// commands are the subcommands this platform has, by name.
+var commands map[string]func(args []string) error
 
 func startMenuDirs() []string {
 	return []string{

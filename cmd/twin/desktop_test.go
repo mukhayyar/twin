@@ -78,7 +78,7 @@ func TestFlatpakExec(t *testing.T) {
 
 func TestLauncherScript(t *testing.T) {
 	iso := isolation{Lib: "/home/a/.local/share/twin/libtwinisolate.so", Name: "Slack-Work", Hash: "1a2b3c4d", Hardware: "separate"}
-	s := launcherScript("Slack", "/home/a/.app_profiles/Slack-Work", []string{"/usr/bin/slack", "--it's"}, iso)
+	s := launcherScript("Slack", "/home/a/.app_profiles/Slack-Work", []string{"/usr/bin/slack", "--it's"}, iso, session{})
 	for _, want := range []string{
 		"P='/home/a/.app_profiles/Slack-Work'",
 		`export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"`,
@@ -91,8 +91,53 @@ func TestLauncherScript(t *testing.T) {
 			t.Errorf("launcher missing %q:\n%s", want, s)
 		}
 	}
-	if strings.Contains(launcherScript("Slack", "/p", []string{"slack"}, isolation{}), "LD_PRELOAD") {
+	if strings.Contains(launcherScript("Slack", "/p", []string{"slack"}, isolation{}, session{}), "LD_PRELOAD") {
 		t.Error("no library, no preload")
+	}
+}
+
+func TestLauncherSession(t *testing.T) {
+	s := launcherScript("RustDesk", "/p", []string{"rustdesk"}, isolation{},
+		session{Display: ":3", Env: []string{"RUSTDESK_FORCED_DISPLAY_SERVER=x11", "A=it's"}})
+	for _, want := range []string{
+		"export DISPLAY=':3' XDG_SESSION_TYPE=x11\nunset WAYLAND_DISPLAY\n",
+		`grep -qzxF "DISPLAY=$DISPLAY" "$e" 2>/dev/null && ! grep -qz '^TWIN_NAME=' "$e" || continue`,
+		"export RUSTDESK_FORCED_DISPLAY_SERVER='x11'\nexport A='it'\\''s'\nexport HOME=",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("launcher missing %q:\n%s", want, s)
+		}
+	}
+	if strings.Contains(launcherScript("Slack", "/p", []string{"slack"}, isolation{}, session{}), "DISPLAY") {
+		t.Error("no display, no DISPLAY")
+	}
+}
+
+func TestServiceUnit(t *testing.T) {
+	u := serviceUnit("RustDesk-Work", "RustDesk", "/home/a b/.local/share/twin/twin-rustdesk-work.sh", []string{"--server", "100%$"})
+	for _, want := range []string{
+		"Description=RustDesk-Work, a twin of RustDesk\n",
+		`ExecStart="/home/a b/.local/share/twin/twin-rustdesk-work.sh" "--server" "100%%$$"` + "\n",
+		"Restart=always\n", "StartLimitIntervalSec=0\n", "WantedBy=default.target\n",
+	} {
+		if !strings.Contains(u, want) {
+			t.Errorf("unit missing %q:\n%s", want, u)
+		}
+	}
+}
+
+func TestParseSession(t *testing.T) {
+	if _, err := parseSession(":3", []string{"A=1", "B_2=x=y"}); err != nil {
+		t.Error(err)
+	}
+	for _, bad := range [][2]string{{"3", ""}, {":3;rm", ""}, {"", "A"}, {"", "1A=x"}, {"", "A B=x"}} {
+		env := []string{}
+		if bad[1] != "" {
+			env = append(env, bad[1])
+		}
+		if _, err := parseSession(bad[0], env); err == nil {
+			t.Errorf("parseSession(%q, %q) accepted", bad[0], env)
+		}
 	}
 }
 

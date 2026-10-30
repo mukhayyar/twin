@@ -20,8 +20,12 @@ func TestPlanSteps(t *testing.T) {
 		t.Error("data step runs although the twin starts fresh")
 	}
 	got := titles(Plan{BringData: true})
-	if !slices.Contains(got, dataStep) || len(got) != len(steps) {
+	if !slices.Contains(got, dataStep) || slices.Contains(got, serviceStep) {
 		t.Errorf("with BringData: %q", got)
+	}
+	all := titles(Plan{BringData: true, Service: true})
+	if len(all) != len(steps) {
+		t.Errorf("with everything: %q, want all %d steps", all, len(steps))
 	}
 }
 

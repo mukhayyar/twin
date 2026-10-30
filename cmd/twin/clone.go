@@ -22,8 +22,10 @@ type Plan struct {
 	Tint    bool
 	Badge   bool
 
-	OwnHardware bool // the twin gets its own hardware IDs (macOS)
-	BringData   bool // the twin starts with a copy of the original's data
+	OwnHardware bool    // the twin gets its own hardware IDs (macOS, Linux)
+	BringData   bool    // the twin starts with a copy of the original's data
+	Session     session // X display and extra variables for its launcher (Linux)
+	Service     bool    // a user service keeps its background server running (Linux)
 
 	ExistingIsClone bool // what's at Dest was made by twin
 }
@@ -46,12 +48,28 @@ func newPlan(src App, rawLabel string, style Options) Plan {
 
 		OwnHardware: style.OwnHardware,
 		BringData:   style.BringData,
+		Session:     style.Session,
+		Service:     style.Service,
 	}
 	p.Dest, p.ID = twinTarget(src, name, label)
 	_, err := os.Stat(p.Dest)
 	p.Exists = err == nil
 	p.ExistingIsClone = p.Exists && isTwin(p.Dest)
 	return p
+}
+
+// planError reports options the plan's app can't honor, before anything is
+// made.
+func planError(p Plan) error {
+	if p.Service {
+		if a := adapterFor(p.Src); a == nil || a.Server == nil {
+			return fmt.Errorf("--service is for apps twin can run in the background, like RustDesk; %s isn't one", p.Src.Name)
+		}
+	}
+	if (p.Session.Display != "" || len(p.Session.Env) > 0) && isFlatpak(execArgs(p.Src.Exec)) {
+		return fmt.Errorf("--display and --env don't reach into flatpak apps like %s", p.Src.Name)
+	}
+	return nil
 }
 
 // twinHash keeps per-twin paths short: Unix socket paths max out at 104
@@ -85,6 +103,10 @@ func sanitizeLabel(s string) string {
 // paintStep is the icon step's title on every platform. When it warns, the
 // twin kept the original icon.
 const paintStep = "Paint icon & badge"
+
+// serviceStep installs a user service that keeps the twin's background
+// server running (Linux, --service).
+const serviceStep = "Keep server running"
 
 // step is one stage of a clone. A returned error aborts the clone; a warning
 // is shown but the clone carries on.

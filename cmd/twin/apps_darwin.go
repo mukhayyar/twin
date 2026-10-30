@@ -16,7 +16,14 @@ const (
 	dropHint       = "Pick from the list, or drag an app from Finder into this window."
 	dirsHelp       = "(default: /Applications:~/Applications)"
 	pathExample    = "~/Downloads/Foo.app"
+	sharedHardware = "this Mac's hardware ID"
+	// sessionOptions: whether --display, --env and --service exist here.
+	sessionOptions = false
+	platformHelp   = ""
 )
+
+// commands are the subcommands this platform has, by name.
+var commands map[string]func(args []string) error
 
 // searchRoots returns the folders scanned for apps. TWIN_DIRS
 // (colon-separated) overrides the defaults.

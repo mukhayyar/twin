@@ -28,11 +28,13 @@ var (
 
 // Options are the choices behind a twin.
 type Options struct {
-	Color       string // #RRGGBB, or "" to pick one from the label
-	Tint        bool   // shift the icon's hue toward the color
-	Badge       bool   // draw the label on the icon
-	OwnHardware bool   // give the twin its own hardware IDs (macOS)
-	BringData   bool   // start the twin with a copy of the original's data
+	Color       string  // #RRGGBB, or "" to pick one from the label
+	Tint        bool    // shift the icon's hue toward the color
+	Badge       bool    // draw the label on the icon
+	OwnHardware bool    // give the twin its own hardware IDs (macOS, Linux)
+	BringData   bool    // start the twin with a copy of the original's data
+	Session     session // X display and extra variables (Linux)
+	Service     bool    // keep its background server running (Linux)
 }
 
 func autoColor(label string) string {

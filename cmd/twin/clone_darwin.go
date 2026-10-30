@@ -55,6 +55,9 @@ func hardwareMode(p Plan) string {
 	return "shared"
 }
 
+// adapters cover apps that need more than the generic isolation; none here.
+var adapters []adapter
+
 var steps = []step{
 	{"Copy app bundle", copyBundle},
 	{"Update bundle identifier", updateInfoPlist},

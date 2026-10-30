@@ -526,6 +526,7 @@ func (m model) doneView() string {
 	pairs := append(previewRows(m.plan), "Icon", iconRow(m.plan, kept))
 	pairs = append(pairs, hardwareRow(m.plan, false)...)
 	pairs = append(pairs, dataRow(m.plan, false)...)
+	pairs = append(pairs, adapterRows(m.plan)...)
 	pairs = append(pairs, "Time", fmt.Sprintf("%.1fs", m.elapsed.Seconds()))
 	body := title + "\n\n" + rows(pairs...)
 	for i, n := range m.notes {
@@ -574,7 +575,7 @@ func hardwareRow(p Plan, editable bool) []string {
 	if !hardwareOption {
 		return nil
 	}
-	own, shared := "own hardware ID", "this Mac's hardware ID"
+	own, shared := "own hardware ID", sharedHardware
 	if editable {
 		own, shared = "[x] own hardware ID", "[ ] own hardware ID"
 	}

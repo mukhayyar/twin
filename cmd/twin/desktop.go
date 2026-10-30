@@ -15,6 +15,7 @@ import (
 type desktopEntry struct {
 	Name, Exec, Icon, Categories string
 	TwinSource                   string // set on twins: the entry they came from
+	TwinProfile                  string // set on twins: their profile folder
 	IsApp, Terminal, Hidden      bool   // Hidden covers NoDisplay and Hidden
 }
 
@@ -56,6 +57,8 @@ func parseDesktop(data string) desktopEntry {
 			e.Hidden = e.Hidden || v == "true"
 		case "X-Twin-Source":
 			e.TwinSource = v
+		case "X-Twin-Profile":
+			e.TwinProfile = v
 		}
 	}
 	return e
@@ -186,11 +189,18 @@ type isolation struct {
 	Hardware string // "separate" or "shared"
 }
 
+// session is where a twin's launcher runs it: on the desktop it was started
+// from, or on a given X display, with any extra environment variables.
+type session struct {
+	Display string   // X display such as ":3"; empty: wherever it's started
+	Env     []string // KEY=value, set last so they win
+}
+
 // launcherScript runs cmd with HOME and the XDG directories pointed at the
 // profile, and libtwinisolate preloaded for /tmp, runtime sockets and
 // hardware IDs. XAUTHORITY is pinned first: X11 looks for ~/.Xauthority
 // otherwise.
-func launcherScript(appName, profile string, cmd []string, iso isolation) string {
+func launcherScript(appName, profile string, cmd []string, iso isolation, ses session) string {
 	quoted := make([]string, len(cmd))
 	for i, a := range cmd {
 		quoted[i] = shellQuote(a)
@@ -210,11 +220,68 @@ export LD_PRELOAD=%s"${LD_PRELOAD:+:$LD_PRELOAD}"
 # Made by twin: runs %s with its own profile. Delete it along with the twin.
 P=%s
 export XAUTHORITY="${XAUTHORITY:-$HOME/.Xauthority}"
-export HOME="$P" %s
+%sexport HOME="$P" %s
 mkdir -p %s
 %sexec %s "$@"
-`, appName, shellQuote(profile), strings.Join(env, " "), strings.Join(dirs, " "), preload, strings.Join(quoted, " "))
+`, appName, shellQuote(profile), sessionScript(ses), strings.Join(env, " "), strings.Join(dirs, " "), preload, strings.Join(quoted, " "))
 }
+
+// sessionScript points the launcher at an X display and borrows the D-Bus
+// bus and X authority of the desktop session running there (found in the
+// environment of one of its processes that isn't a twin), so menus, tray
+// icons and notifications reach that desktop.
+func sessionScript(ses session) string {
+	var b strings.Builder
+	if ses.Display != "" {
+		fmt.Fprintf(&b, `export DISPLAY=%s XDG_SESSION_TYPE=x11
+unset WAYLAND_DISPLAY
+for e in /proc/[0-9]*/environ; do
+	grep -qzxF "DISPLAY=$DISPLAY" "$e" 2>/dev/null && ! grep -qz '^TWIN_NAME=' "$e" || continue
+	bus=$(grep -z '^DBUS_SESSION_BUS_ADDRESS=' "$e" | tr -d '\0')
+	[ -n "$bus" ] || continue
+	export "$bus"
+	auth=$(grep -z '^XAUTHORITY=' "$e" | tr -d '\0')
+	[ -n "$auth" ] && export "$auth"
+	break
+done
+`, shellQuote(ses.Display))
+	}
+	for _, kv := range ses.Env {
+		k, v, _ := strings.Cut(kv, "=")
+		fmt.Fprintf(&b, "export %s=%s\n", k, shellQuote(v))
+	}
+	return b.String()
+}
+
+// serviceUnit is a systemd user service that runs a twin's launcher with
+// args and starts it again whenever it stops, without ever giving up.
+func serviceUnit(name, appName, launcher string, args []string) string {
+	return fmt.Sprintf(`# Made by twin: keeps %s's server running. Delete it along with the twin.
+[Unit]
+Description=%s, a twin of %s
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart=%s
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+`, name, systemdEscape(name), systemdEscape(appName), systemdExec(append([]string{launcher}, args...)))
+}
+
+// systemdExec quotes a command for ExecStart=, each argument in double quotes.
+func systemdExec(args []string) string {
+	out := make([]string, len(args))
+	for i, a := range args {
+		out[i] = `"` + strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(systemdEscape(a)) + `"`
+	}
+	return strings.Join(out, " ")
+}
+
+// systemdEscape keeps systemd from expanding specifiers (%) and variables ($).
+func systemdEscape(s string) string { return strings.NewReplacer("%", "%%", "$", "$$").Replace(s) }
 
 // chromiumMarkers are files only Chromium-based apps (Chrome, Electron apps
 // like Slack, Discord, VS Code) ship next to their executable.

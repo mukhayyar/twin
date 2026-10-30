@@ -16,7 +16,26 @@ const (
 	dropHint       = "Pick from the list, or drag a .desktop file into this window."
 	dirsHelp       = "(default: the XDG applications folders)"
 	pathExample    = "~/Desktop/foo.desktop"
+	sharedHardware = "this computer's hardware ID"
+	// sessionOptions: whether --display, --env and --service exist here.
+	sessionOptions = true
+	platformHelp   = `      --display :N    run the twin on X display :N (say, an Xvnc desktop), with
+                      that desktop's D-Bus session
+      --env KEY=VALUE set a variable in the twin's launcher; repeatable
+      --service       keep the twin's background server running with a
+                      systemd user service (for apps twin knows, like RustDesk)
+
+Commands:
+  twin rustdesk-password TWIN
+                      set a RustDesk twin's permanent password, read from
+                      stdin or a prompt (never from the command line)
+`
 )
+
+// commands are the subcommands this platform has, by name.
+var commands = map[string]func(args []string) error{
+	"rustdesk-password": rustdeskPasswordCommand,
+}
 
 func dataHome() string {
 	if v := os.Getenv("XDG_DATA_HOME"); v != "" {
@@ -117,6 +136,40 @@ func appFromPath(raw string) (App, error) {
 		return App{}, fmt.Errorf("%s is already a twin", a.Name)
 	}
 	return a, nil
+}
+
+// twinPlan rebuilds the plan of an existing twin from its .desktop file and
+// launcher, for commands that change a twin after it was made.
+func twinPlan(name string) (Plan, error) {
+	id := "twin-" + slugify(name)
+	dest := filepath.Join(dataHome(), "applications", id+".desktop")
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		return Plan{}, fmt.Errorf("no twin named %s (looked for %s)", name, tildify(dest))
+	}
+	e := parseDesktop(string(data))
+	if e.TwinSource == "" || e.TwinProfile == "" {
+		return Plan{}, fmt.Errorf("%s wasn't made by twin", tildify(dest))
+	}
+	src, _, ok := readDesktopApp(e.TwinSource)
+	if !ok {
+		return Plan{}, fmt.Errorf("%s was made from %s, which is gone", e.Name, tildify(e.TwinSource))
+	}
+	launcher, err := os.ReadFile(launcherPath(id))
+	if err != nil {
+		return Plan{}, fmt.Errorf("%s has no launcher; make it again with twin", e.Name)
+	}
+	return Plan{
+		Src: src, Name: e.Name, Label: strings.TrimPrefix(e.Name, src.Name+"-"),
+		Dest: dest, ID: id, Profile: e.TwinProfile, Exists: true, ExistingIsClone: true,
+		OwnHardware: !strings.Contains(string(launcher), "TWIN_HARDWARE=shared"),
+		Service:     fileExists(servicePath(id)),
+	}, nil
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // twinsOf lists the names of existing twins of the app called name.

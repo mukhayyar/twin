@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -210,7 +211,7 @@ func TestRekeyRustDeskConfig(t *testing.T) {
 		t.Error("saved peer password not moved")
 	}
 	for _, name := range []string{"RustDesk.toml", "RustDesk2.toml"} {
-		if info, _ := os.Stat(filepath.Join(dir, name)); info.Mode().Perm() != 0o600 {
+		if info, _ := os.Stat(filepath.Join(dir, name)); runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 			t.Errorf("%s mode %v", name, info.Mode().Perm())
 		}
 	}
